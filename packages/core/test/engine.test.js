@@ -124,21 +124,73 @@ test('calculates Türkiye import VAT on customs value plus duty', async () => {
 });
 
 
-test('country tax rule registry marks Türkiye configured and others manual-required', async () => {
-  const { getCountryRuleProfile, CountryRulePackStatus } = await import("../../rules/src/registry.js");
+test('country tax rule registry provides country-specific or global-generic capability', async () => {
+  const { getCountryRuleProfile, CountryRulePackStatus, getGlobalTradeTaxCapabilities } = await import("../../rules/src/registry.js");
 
   const tr = getCountryRuleProfile("TR");
-  assert.equal(tr.status, CountryRulePackStatus.CONFIGURED);
+  assert.equal(tr.status, CountryRulePackStatus.COUNTRY_SPECIFIC);
   assert.equal(tr.taxModel, "IMPORT_VAT");
   assert.equal(tr.automaticRate, false);
 
   const af = getCountryRuleProfile("AF");
-  assert.equal(af.status, CountryRulePackStatus.MANUAL_REQUIRED);
+  assert.equal(af.status, CountryRulePackStatus.GLOBAL_GENERIC);
+  assert.equal(af.taxModel, "GENERIC_MULTI_TAX");
   assert.equal(af.ratePolicy, "VERIFIED_RATE_ONLY");
   assert.equal(af.automaticRate, false);
+
+  const global = getGlobalTradeTaxCapabilities();
+  assert.equal(global.scope, "ANY_ORIGIN_TO_ANY_DESTINATION");
+  assert.equal(global.automaticUnknownRate, false);
 });
 
 test('country tax rule registry rejects non ISO2 codes', async () => {
   const { getCountryRuleProfile } = await import("../../rules/src/registry.js");
   assert.throws(() => getCountryRuleProfile("792"), /ISO 3166-1 alpha-2/);
+});
+
+
+test('global trade chain separates origin, export, transit and import countries', async () => {
+  const { normalizeTradeChain, tariffRouteFromTradeChain, freightRouteFromTradeChain } = await import("../src/trade-route.js");
+
+  const chain = normalizeTradeChain({
+    countryOfOrigin: "CN",
+    exportCountry: "TR",
+    transitCountries: ["GE", "AZ", "GE"],
+    importCountry: "IR",
+    transportMode: "ROAD",
+    departurePoint: "Mersin",
+    destinationPoint: "Tabriz"
+  });
+
+  assert.equal(chain.countryOfOrigin, "CN");
+  assert.equal(chain.exportCountry, "TR");
+  assert.deepEqual(chain.transitCountries, ["GE", "AZ"]);
+  assert.equal(chain.importCountry, "IR");
+
+  assert.deepEqual(tariffRouteFromTradeChain(chain), {
+    partnerCountry: "CN",
+    reporterCountry: "IR"
+  });
+
+  const freight = freightRouteFromTradeChain(chain);
+  assert.equal(freight.originCountry, "TR");
+  assert.equal(freight.destinationCountry, "IR");
+  assert.equal(freight.transportMode, "ROAD");
+});
+
+test('global trade chain accepts any valid ISO2 country pair and rejects invalid modes', async () => {
+  const { normalizeTradeChain } = await import("../src/trade-route.js");
+  const route = normalizeTradeChain({
+    countryOfOrigin: "BR",
+    exportCountry: "BR",
+    importCountry: "JP",
+    transportMode: "SEA"
+  });
+  assert.equal(route.scope, "GLOBAL");
+  assert.throws(() => normalizeTradeChain({
+    countryOfOrigin: "BR",
+    exportCountry: "BR",
+    importCountry: "JP",
+    transportMode: "SPACE"
+  }), /Unsupported transportMode/);
 });
