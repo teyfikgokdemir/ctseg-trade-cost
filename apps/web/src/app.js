@@ -802,6 +802,8 @@ function applyVerifiedImportTaxRate(){
 
   if(row){
     row.dataset.code='IMPORT_TAX';
+    row.dataset.taxResolution='MANUAL_VERIFIED';
+    row.dataset.taxProvider=sourceEl?.value||'MANUAL';
     row.querySelector('.label').value=currentLanguage==='en'?'Import VAT / GST':'İthalat KDV / GST';
     row.querySelector('.method').value='PCT_IMPORT_TAX';
     row.querySelector('.rate').value=String(rate);
@@ -872,6 +874,7 @@ let tariffRequestSeq=0;
 let taxRuleRequestSeq=0;
 let lastTariffData=null;
 let lastTariffKey=null;
+let lastImportTaxLookup=null;
 
 async function loadCountries(){
   const originSelect=document.querySelector('#originCountry');
@@ -2469,6 +2472,88 @@ function syncQuickToEngine(){
   return {ok:true,mt,origin,destination,mode,product};
 }
 
+async function loadOfficialImportTax(){
+  const country=selectedCountryIso2('#importCountry');
+  const hs=document.querySelector('#hsCode')?.value.trim()||'';
+  const row=findImportTaxRow();
+  if(!country||!/^\d{6}$/.test(hs)||!row){
+    lastImportTaxLookup=null;
+    return null;
+  }
+
+  try{
+    const params=new URLSearchParams({country,hs});
+    const res=await fetch('/api/import-tax?'+params.toString(),{cache:'no-store'});
+    const data=await res.json();
+    lastImportTaxLookup=data;
+
+    if(!res.ok){
+      row.dataset.taxResolution='UNRESOLVED';
+      return data;
+    }
+
+    if(data.status==='NO_OFFICIAL_PROVIDER_CONNECTED'){
+      row.dataset.taxResolution='UNRESOLVED';
+      return data;
+    }
+
+    const result=data.result||{};
+    const matching=(result.productCandidates||[])
+      .filter(item=>Array.isArray(item.cnCodes)&&item.cnCodes.some(code=>hs.startsWith(code)||code.startsWith(hs)))
+      .map(item=>Number(item.rate))
+      .filter(Number.isFinite);
+    const unique=[...new Set(matching)];
+
+    if(unique.length===1){
+      row.dataset.taxResolution='OFFICIAL_PRODUCT_RATE';
+      row.dataset.taxProvider='EU_TEDB';
+      row.querySelector('.rate').value=String(unique[0]);
+      row.querySelector('.source').value='OFFICIAL';
+      row.querySelector('.label').value=currentLanguage==='en'?'Import VAT / GST':'İthalat KDV / GST';
+      document.querySelector('#verifiedImportTaxRate').value=String(unique[0]);
+      document.querySelector('#verifiedImportTaxSource').value='OFFICIAL';
+      refreshCalculatedAmounts();
+      return data;
+    }
+
+    if(unique.length>1){
+      row.dataset.taxResolution='MULTIPLE_PRODUCT_RATES';
+      row.dataset.taxProvider='EU_TEDB';
+      row.querySelector('.rate').value='';
+      row.querySelector('.source').value='ESTIMATE';
+      row.querySelector('.label').value=currentLanguage==='en'
+        ? 'Import VAT / GST (multiple official rates)'
+        : 'İthalat KDV / GST (birden fazla resmî oran)';
+      refreshCalculatedAmounts();
+      return data;
+    }
+
+    if(Number.isFinite(Number(result.standardRate))){
+      row.dataset.taxResolution='STANDARD_RATE_REFERENCE';
+      row.dataset.taxProvider='EU_TEDB';
+      row.querySelector('.rate').value=String(Number(result.standardRate));
+      row.querySelector('.source').value='OFFICIAL';
+      row.querySelector('.label').value=currentLanguage==='en'
+        ? 'Import VAT / GST (standard-rate reference)'
+        : 'İthalat KDV / GST (standart oran referansı)';
+      document.querySelector('#verifiedImportTaxRate').value=String(Number(result.standardRate));
+      document.querySelector('#verifiedImportTaxSource').value='OFFICIAL';
+      refreshCalculatedAmounts();
+      return data;
+    }
+
+    row.dataset.taxResolution='UNRESOLVED';
+    return data;
+  }catch{
+    lastImportTaxLookup={
+      status:'OFFICIAL_PROVIDER_UNAVAILABLE',
+      autoApply:false
+    };
+    if(row) row.dataset.taxResolution='UNRESOLVED';
+    return lastImportTaxLookup;
+  }
+}
+
 function quickMissingData(){
   const missing=[];
   const hs=document.querySelector('#hsCode')?.value.trim();
@@ -2478,7 +2563,13 @@ function quickMissingData(){
   if(!duty || duty.querySelector('.rate').value.trim()==='') missing.push(currentLanguage==='en'?'customs duty':'gümrük vergisi');
 
   const importTax=findImportTaxRow();
-  if(!importTax || importTax.querySelector('.rate').value.trim()==='') missing.push(currentLanguage==='en'?'import VAT/GST':'ithalat KDV/GST');
+  if(!importTax || importTax.querySelector('.rate').value.trim()===''){
+    missing.push(currentLanguage==='en'?'import VAT/GST':'ithalat KDV/GST');
+  }else if(importTax.dataset.taxResolution==='STANDARD_RATE_REFERENCE'){
+    missing.push(currentLanguage==='en'?'product-specific VAT/GST rate':'ürün bazlı KDV/GST oranı');
+  }else if(importTax.dataset.taxResolution==='MULTIPLE_PRODUCT_RATES'){
+    missing.push(currentLanguage==='en'?'VAT/GST rate selection':'KDV/GST oran seçimi');
+  }
 
   const freight=findFreightRow();
   if(!freight || freight.querySelector('.rate').value.trim()==='') missing.push(currentLanguage==='en'?'freight':'navlun');
@@ -2512,6 +2603,7 @@ async function runQuickCalculation(){
 
   await loadTariff();
   await loadCountryTaxProfile();
+  await loadOfficialImportTax();
   await loadFreightBenchmark();
 
   const missing=quickMissingData();
@@ -2651,6 +2743,12 @@ document.querySelector('#addTradeRemedy')?.addEventListener('click',addVerifiedT
 document.querySelector('#originCountry').addEventListener('change',()=>{loadTariff();refreshTradeRemedyValidity();});
 document.querySelector('#exportCountry').addEventListener('change',()=>{});
 document.querySelector('#importCountry').addEventListener('change',()=>{
+  lastImportTaxLookup=null;
+  const importTax=findImportTaxRow();
+  if(importTax){
+    importTax.dataset.taxResolution='UNRESOLVED';
+    importTax.dataset.taxProvider='';
+  }
   invalidateCustomsValuation();
   updateCustomsValuation();
   const taxSelect=document.querySelector('#taxRuleCountrySelect');
