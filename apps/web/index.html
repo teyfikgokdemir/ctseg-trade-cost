@@ -26,6 +26,54 @@
       </div>
     </header>
 
+    <section class="panel quick-calc-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Hızlı maliyet hesabı</h2>
+          <p class="section-help">Ürün, fiyat, miktar ve rotayı girin. Gümrük, vergi, navlun ve diğer maliyetler arka planda hesaplanır.</p>
+        </div>
+      </div>
+
+      <div class="quick-grid">
+        <label>Ürün<input id="quickProduct" placeholder="Örn. L-Threonine, ayçiçek yağı, badem..." /></label>
+        <label>Alış fiyatı<input id="quickPrice" type="number" min="0" step="0.01" /></label>
+        <label>Fiyat birimi
+          <select id="quickPriceUnit">
+            <option value="USD_MT">USD / MT</option>
+            <option value="USD_KG">USD / Kg</option>
+            <option value="USD_L">USD / Litre</option>
+          </select>
+        </label>
+        <label>Miktar
+          <div class="quantity-inline">
+            <input id="quickQuantity" type="number" min="0" step="0.01" />
+            <select id="quickQuantityUnit">
+              <option value="MT">MT</option>
+              <option value="KG">Kg</option>
+              <option value="L">Litre</option>
+            </select>
+          </div>
+        </label>
+        <label id="quickDensityWrap" hidden>Yoğunluk (kg/L)<input id="quickDensity" type="number" min="0.01" step="0.001" placeholder="Litre için gerekli" /></label>
+        <label>Hangi ülkeden?<select id="quickOriginCountry"><option value="">Ülkeler yükleniyor…</option></select></label>
+        <label>Hangi ülkeye?<select id="quickImportCountry"><option value="">Ülkeler yükleniyor…</option></select></label>
+        <label>Taşıma
+          <select id="quickTransportMode">
+            <option value="SEA">Denizyolu</option>
+            <option value="ROAD">Karayolu</option>
+            <option value="RAIL">Demiryolu</option>
+            <option value="AIR">Havayolu</option>
+            <option value="MULTIMODAL">Multimodal</option>
+          </select>
+        </label>
+      </div>
+
+      <button id="quickCalculate" class="primary quick-primary" type="button">Toplam maliyeti hesapla</button>
+      <div id="quickCalcStatus" class="quick-status">Gerekli alanları doldurun.</div>
+    </section>
+
+    <details class="advanced-details" id="advancedDetails">
+      <summary>Gelişmiş ayrıntılar ve manuel doğrulamalar</summary>
     <section class="panel">
       <div class="panel-head">
         <div>
@@ -481,6 +529,8 @@
       </div>
       <div id="costRows"></div>
     </section>
+
+    </details>
 
     <button id="calculate" class="primary">Toplam teslim maliyetini hesapla</button>
 
