@@ -26,6 +26,65 @@ function json(body, status = 200, cache = "public, max-age=21600") {
   });
 }
 
+
+function rowsOf(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.Dataset)) return payload.Dataset;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+}
+
+function latestObservation(payload) {
+  const rows = rowsOf(payload)
+    .filter(row => Number.isFinite(Number(row?.Year)) && Number.isFinite(Number(row?.Value)))
+    .sort((a, b) => Number(b.Year) - Number(a.Year));
+
+  return rows[0] || null;
+}
+
+function normalizeLookupResult({ requestedYear, mfnAverage, mfnMaximum, preferential }) {
+  const mfn = latestObservation(mfnAverage);
+  const max = latestObservation(mfnMaximum);
+  const pref = latestObservation(preferential);
+
+  const resolvedYear = mfn?.Year ?? max?.Year ?? null;
+  const requested = requestedYear ? Number(requestedYear) : null;
+  const stalenessYears = requested && resolvedYear ? Math.max(0, requested - Number(resolvedYear)) : null;
+
+  const preferentialCandidate = pref ? {
+    rate: Number(pref.Value),
+    year: Number(pref.Year),
+    partnerCode: pref.PartnerEconomyCode || null,
+    partner: pref.PartnerEconomy || null,
+    valueFlagCode: pref.ValueFlagCode || null,
+    valueFlag: pref.ValueFlag || null,
+    schemeText: pref.TextValue || null,
+    eligibilityStatus: "NOT_CONFIRMED"
+  } : null;
+
+  let confidence = "LOW";
+  if (mfn) {
+    if (stalenessYears === 0) confidence = "HIGH";
+    else if (stalenessYears !== null && stalenessYears <= 2) confidence = "MEDIUM";
+  }
+
+  return {
+    dutyRate: mfn ? Number(mfn.Value) : null,
+    maxRate: max ? Number(max.Value) : null,
+    resolvedYear,
+    stalenessYears,
+    confidence,
+    preferentialCandidate,
+    appliedRateDecision: {
+      rate: mfn ? Number(mfn.Value) : null,
+      basis: mfn ? "MFN" : null,
+      reason: preferentialCandidate
+        ? "Preferential observation exists, but eligibility is not confirmed; MFN remains the safe default."
+        : "No preferential observation was resolved; MFN remains the default reference."
+    }
+  };
+}
+
 function buildPeriodWindow(year) {
   if (!year) return "default";
   const end = Number(year);
@@ -114,6 +173,12 @@ export async function onRequestGet({ request, env }) {
       }
 
       const data = await lookupTariffs(env.WTO_API_KEY, { hs, reporter, partner, year });
+      const normalized = normalizeLookupResult({
+        requestedYear: year,
+        mfnAverage: data.mfnAverage,
+        mfnMaximum: data.mfnMaximum,
+        preferential: data.preferential
+      });
 
       return json({
         provider: "wto-timeseries-v1",
@@ -131,6 +196,7 @@ export async function onRequestGet({ request, env }) {
         },
         requestedYear: year || "default/latest available",
         queriedPeriod: buildPeriodWindow(year),
+        normalized,
         indicators: {
           mfnAverage: {
             code: "HS_A_0010",
@@ -157,7 +223,7 @@ export async function onRequestGet({ request, env }) {
             ? "A preferential observation is partner-specific evidence only; eligibility still depends on the applicable trade arrangement and rules of origin."
             : "No partner was supplied, so no preferential-tariff query was made."
         },
-        disclaimer: "Official WTO statistical tariff data is not a binding customs assessment. Confirm the importing country's current national tariff line, origin rules, taxes and other import charges before quoting a final landed cost."
+        disclaimer: "Official WTO statistical tariff data is not a binding customs assessment. Preferential observations are never applied automatically without confirmed scheme eligibility and rules of origin. Confirm the importing country's current national tariff line, origin rules, taxes and other import charges before quoting a final landed cost."
       });
     }
 
