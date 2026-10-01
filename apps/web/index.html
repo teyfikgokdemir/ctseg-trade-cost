@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trade Cost Intelligence</title>
+  <link rel="stylesheet" href="./src/styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">GLOBAL TRADE COST INTELLIGENCE</p>
+        <h1>Landed Cost Calculator</h1>
+        <p class="sub">Ürün, rota ve ülke bağımsız uluslararası ticaret maliyet motoru.</p>
+      </div>
+      <span class="badge">MVP v0.1</span>
+    </header>
+
+    <section class="grid inputs">
+      <label>Origin<input id="origin" value="Edirne, Türkiye" /></label>
+      <label>Destination<input id="destination" value="Herat, Afghanistan" /></label>
+      <label>Quantity (MT)<input id="quantity" type="number" value="100" step="1" /></label>
+      <label>Density (kg/L)<input id="density" type="number" value="0.92" step="0.01" /></label>
+      <label>Purchase price ($/L)<input id="price" type="number" value="1.80" step="0.01" /></label>
+      <label>Incoterm<select id="incoterm"><option>EXW</option><option>FOB</option><option>CFR</option><option>CIF</option><option>DAP</option><option>DDP</option></select></label>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Cost lines</h2><button id="addCost">+ Add cost</button></div>
+      <div id="costRows"></div>
+    </section>
+
+    <button id="calculate" class="primary">Calculate landed cost</button>
+
+    <section class="results" id="results" hidden>
+      <div class="metric strong"><span>Estimated landed cost</span><b id="perLitre">—</b><small>USD / litre</small></div>
+      <div class="metric"><span>Total</span><b id="total">—</b><small>USD</small></div>
+      <div class="metric"><span>Per MT</span><b id="perMt">—</b><small>USD / MT</small></div>
+      <div class="metric"><span>Confidence</span><b id="confidence">—</b><small>data quality</small></div>
+      <div class="range"><span>Expected range</span><strong id="range">—</strong></div>
+      <div class="route" id="routeText"></div>
+    </section>
+
+    <section class="panel note">
+      <h2>Data policy</h2>
+      <p>Her maliyet kalemi LIVE, OFFICIAL, QUOTE, MARKET_AVG, MANUAL veya ESTIMATE olarak etiketlenir. Canlı ve resmî veri, tahminlerin önüne geçer.</p>
+    </section>
+  </main>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
