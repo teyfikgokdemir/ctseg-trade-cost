@@ -22,7 +22,7 @@
             <option value="en">EN — English</option>
           </select>
         </label>
-        <span class="badge">MVP v0.7</span>
+        <span class="badge">MVP v0.9</span>
       </div>
     </header>
 
@@ -335,6 +335,20 @@
       </div>
 
       <p class="print-disclaimer">Bu rapor hesaplama tarihinde mevcut olan veri, teklif ve kullanıcı girdilerine dayanır. Tahmini ve piyasa ortalaması niteliğindeki kalemler kesin teklif veya resmî tarife yerine geçmez.</p>
+    </section>
+
+    <section class="panel history-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Geçmiş hesaplamalar</h2>
+          <p class="section-help">D1 üzerinde saklanan son hesaplamaları görüntüleyin. Geçmiş sonuçlar snapshot'tır; yeniden yüklediğinizde güncel veri kaynakları tekrar sorgulanır.</p>
+        </div>
+        <button id="refreshCalculationHistory" type="button">Geçmişi yenile</button>
+      </div>
+      <div id="historySnapshotNotice" class="history-notice" hidden></div>
+      <div id="calculationHistory" class="history-list">
+        <p class="empty">Geçmiş hesaplamalar yükleniyor…</p>
+      </div>
     </section>
 
     <section class="panel note">
