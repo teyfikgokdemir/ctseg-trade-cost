@@ -38,3 +38,23 @@
   .print-footer strong{font-size:12px}
   .print-disclaimer{font-size:8.5px;color:#666;line-height:1.45;margin-top:24px}
 }
+
+.hs-field{position:relative;z-index:8}
+.hs-input-wrap{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch}
+.hs-input-wrap input{min-width:0}
+.inline-action{white-space:nowrap;padding:0 14px!important;border:1px solid #2a4445!important;background:#132526!important;color:#bfe0db!important;font-size:12px!important}
+.field-status{display:block;margin-top:1px;color:#718486;text-transform:none;letter-spacing:0;font-size:11px;min-height:15px}
+.field-status[data-state="verified"]{color:#a9d9be}
+.field-status[data-state="candidate"]{color:#a8c9c5}
+.field-status[data-state="warning"]{color:#d8c08d}
+.field-status[data-state="error"]{color:#d79c9c}
+.field-status[data-state="loading"]{color:#8aa5a7}
+.hs-suggestions{position:absolute;left:0;right:0;top:calc(100% - 16px);z-index:40;border:1px solid #2a4042;background:#0b1415;border-radius:14px;padding:6px;box-shadow:0 18px 45px rgba(0,0,0,.4);max-height:360px;overflow:auto}
+.hs-suggestion{width:100%;display:flex!important;flex-direction:column;align-items:stretch!important;gap:5px;text-align:left!important;border-radius:10px!important;background:transparent!important;padding:10px 11px!important;color:#e8efed!important}
+.hs-suggestion:hover,.hs-suggestion:focus{background:#152425!important;outline:none}
+.hs-suggestion-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hs-suggestion-top strong{font-size:13px;color:#dff0ec}
+.hs-suggestion-top em{font-style:normal;font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:#89aba6;border:1px solid #294143;border-radius:999px;padding:3px 6px}
+.hs-suggestion-desc{font-size:11px;line-height:1.4;color:#839698;text-transform:none;letter-spacing:0}
+.hs-empty{padding:12px;color:#7f9294;font-size:12px;text-transform:none;letter-spacing:0}
+@media(max-width:560px){.hs-input-wrap{grid-template-columns:1fr}.inline-action{min-height:42px}.hs-suggestions{top:calc(100% - 12px)}}
