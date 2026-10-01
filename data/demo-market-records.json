@@ -1,0 +1,27 @@
+[
+  {
+    "code": "ROAD_FREIGHT_EDIRNE_HERAT",
+    "value": 22500,
+    "unit": "USD/shipment",
+    "sourceType": "ESTIMATE",
+    "sourceName": "Demo seed — not market data",
+    "updatedAt": "2026-10-01T12:00:00Z",
+    "uncertaintyPct": 0.18,
+    "metadata": {
+      "demo": true,
+      "warning": "Replace with market/API/forwarder data before commercial use"
+    }
+  },
+  {
+    "code": "CUSTOMS_BROKER_DEMO",
+    "value": 1300,
+    "unit": "USD/shipment",
+    "sourceType": "ESTIMATE",
+    "sourceName": "Demo seed — not market data",
+    "updatedAt": "2026-10-01T12:00:00Z",
+    "uncertaintyPct": 0.20,
+    "metadata": {
+      "demo": true
+    }
+  }
+]
