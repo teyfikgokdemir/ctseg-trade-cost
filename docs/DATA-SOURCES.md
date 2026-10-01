@@ -118,3 +118,12 @@ No placeholder value may be surfaced as LIVE or OFFICIAL.
 - Commercial buffer is applied after the benchmark and route extras.
 - If no evidence exists, the engine returns `NO_BENCHMARK` and does not invent a rate.
 - UI currently feeds same-route/equipment forwarder quotes plus route distance. External IRU/FBX-style benchmark adapters are planned as the next evidence sources.
+
+
+## D1 active cache and history layer
+- WTO tariff lookup uses a D1 cache key composed of reporter, partner, HS6 and requested year.
+- Tariff cache TTL is 7 days. Expired records trigger a fresh WTO lookup.
+- Cache failures or a missing migration never block a fresh official WTO request.
+- Freight benchmark results are persisted to D1 when they are built from direct evidence.
+- A recent D1 freight benchmark may be used only when no direct quote/market/per-km evidence is available.
+- Historical freight fallback is explicitly marked and is not re-persisted, preventing recursive self-reinforcement.
