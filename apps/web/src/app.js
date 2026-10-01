@@ -595,9 +595,45 @@ function importTaxBase(){
   const dutyAmount=duty?calculateRow(duty):0;
   return customsBase()+dutyAmount;
 }
-function findImportTaxRow(){
+function importTaxRows(){
   return [...document.querySelectorAll('.cost-row')]
-    .find(r=>/ithalat kdv|import vat|local tax|yerel vergi/i.test(r.querySelector('.label').value));
+    .filter(row=>
+      row.dataset.code==='IMPORT_TAX' ||
+      /ithalat kdv|import vat|local tax|yerel vergi/i.test(row.querySelector('.label')?.value||'')
+    );
+}
+
+function dedupeImportTaxRows(){
+  const matches=importTaxRows();
+  if(!matches.length) return null;
+  if(matches.length===1){
+    matches[0].dataset.code='IMPORT_TAX';
+    return matches[0];
+  }
+
+  const score=row=>{
+    const rateRaw=row.querySelector('.rate')?.value?.trim()||'';
+    const source=row.querySelector('.source')?.value||'ESTIMATE';
+    const resolution=row.dataset.taxResolution||'';
+    let points=0;
+    if(rateRaw!=='') points+=3;
+    if(['OFFICIAL','LIVE','MANUAL'].includes(source)) points+=3;
+    if(['OFFICIAL_PRODUCT_RATE','MANUAL_VERIFIED'].includes(resolution)) points+=5;
+    else if(resolution==='STANDARD_RATE_REFERENCE') points+=2;
+    if(row.dataset.code==='IMPORT_TAX') points+=1;
+    return points;
+  };
+
+  const ranked=[...matches].sort((a,b)=>score(b)-score(a));
+  const keep=ranked[0];
+  keep.dataset.code='IMPORT_TAX';
+  for(const row of ranked.slice(1)) row.remove();
+  refreshCalculatedAmounts();
+  return keep;
+}
+
+function findImportTaxRow(){
+  return dedupeImportTaxRows();
 }
 
 const TRADE_REMEDY_LABELS={
@@ -869,6 +905,7 @@ function syncShipment(){
 }
 
 defaults.forEach(addRow);
+dedupeImportTaxRows();
 document.querySelector('#addCost').addEventListener('click',()=>addRow());
 ['containerCount','payloadPerContainer','price','priceUnit','densityKgPerL'].forEach(id=>document.querySelector('#'+id).addEventListener('input',syncShipment));
 ['origin','destination','containerType','transportMode','originCountry','exportCountry','importCountry','transitCountries'].forEach(id=>document.querySelector('#'+id).addEventListener('input',renderQuoteSummary));
@@ -1522,6 +1559,7 @@ async function restoreCalculationSnapshot(item){
     for(const row of input.costRows){
       addRow([row.label,row.method,row.rate,row.source,row.code||'OTHER',row.remedy||null]);
     }
+    dedupeImportTaxRows();
   }
 
   lastRouteData=null;
@@ -2064,6 +2102,7 @@ document.querySelector('#clearCalculationHistory').addEventListener('click',asyn
 });
 
 document.querySelector('#calculate').addEventListener('click',()=>{
+  dedupeImportTaxRows();
   if(document.querySelector('#priceUnit').value==='USD_L' && !positive('#densityKgPerL')){
     alert(currentLanguage==='en'
       ? 'Density (kg/L) is required for litre-based pricing.'
@@ -2844,8 +2883,20 @@ function quickMissingData(){
   return [...new Set(missing)];
 }
 
+function invalidateQuickResults(message=null){
+  const results=document.querySelector('#results');
+  if(results) results.hidden=true;
+  const status=document.querySelector('#quickCalcStatus');
+  if(status && message){
+    status.textContent=message;
+    status.className='quick-status';
+  }
+}
+
 async function runQuickCalculation(){
   const status=document.querySelector('#quickCalcStatus');
+  invalidateQuickResults();
+  dedupeImportTaxRows();
   const synced=syncQuickToEngine();
   if(!synced.ok){
     status.textContent=synced.reason==='DENSITY'
@@ -3215,8 +3266,16 @@ document.querySelector('#quickPriceUnit')?.addEventListener('change',updateQuick
  'quickOriginCountry','quickImportCountry','quickTransportMode','quickIncoterm']
   .forEach(id=>{
     const el=document.querySelector('#'+id);
-    el?.addEventListener('input',persistWorkspaceDraft);
+    el?.addEventListener('input',()=>{
+      invalidateQuickResults(currentLanguage==='en'
+        ? 'Inputs changed. Recalculate to refresh all costs.'
+        : 'Girdiler değişti. Tüm maliyetleri güncellemek için yeniden hesaplayın.');
+      persistWorkspaceDraft();
+    });
     el?.addEventListener('change',()=>{
+      invalidateQuickResults(currentLanguage==='en'
+        ? 'Inputs changed. Recalculate to refresh all costs.'
+        : 'Girdiler değişti. Tüm maliyetleri güncellemek için yeniden hesaplayın.');
       syncQuickDraftToEngine();
       persistWorkspaceDraft();
     });
