@@ -2511,11 +2511,49 @@ function syncQuickDraftToEngine(){
   renderQuoteSummary();
 }
 
+function currentWorkspaceView(){
+  const view=new URLSearchParams(location.search).get('view')||'calculator';
+  return ['calculator','logistics','customs','history'].includes(view)?view:'calculator';
+}
+
+function syncEngineCoreToQuick(){
+  const map=[
+    ['productName','quickProduct'],
+    ['price','quickPrice'],
+    ['priceUnit','quickPriceUnit'],
+    ['originCountry','quickOriginCountry'],
+    ['importCountry','quickImportCountry'],
+    ['transportMode','quickTransportMode'],
+    ['incoterm','quickIncoterm'],
+    ['densityKgPerL','quickDensity']
+  ];
+
+  for(const [fromId,toId] of map){
+    const from=document.querySelector('#'+fromId);
+    const to=document.querySelector('#'+toId);
+    if(!from||!to||from.value==='') continue;
+    if(to.tagName==='SELECT' && ![...to.options].some(o=>o.value===from.value)) continue;
+    to.value=from.value;
+  }
+
+  const s=shipment();
+  if(Number.isFinite(s.mt)&&s.mt>0){
+    const unit=document.querySelector('#quickQuantityUnit');
+    const qty=document.querySelector('#quickQuantity');
+    if(unit) unit.value='MT';
+    if(qty) qty.value=String(Number(s.mt.toFixed(4)));
+  }
+
+  updateQuickDensityVisibility();
+}
+
 function navigateWorkspace(view,{replace=false}={}){
   const valid=['calculator','logistics','customs','history'];
   const target=valid.includes(view)?view:'calculator';
+  const current=currentWorkspaceView();
 
-  syncQuickDraftToEngine();
+  if(current==='calculator') syncQuickDraftToEngine();
+  else syncEngineCoreToQuick();
   persistWorkspaceDraft();
 
   const url=new URL(location.href);
@@ -2946,6 +2984,20 @@ document.querySelector('#searchHsFromProduct').addEventListener('click',()=>{
   searchHsCandidates(product);
 });
 
+['productName','price','priceUnit','originCountry','importCountry','transportMode','incoterm',
+ 'containerCount','payloadPerContainer','densityKgPerL']
+  .forEach(id=>{
+    const el=document.querySelector('#'+id);
+    const save=()=>{
+      if(currentWorkspaceView()!=='calculator'){
+        syncEngineCoreToQuick();
+        persistWorkspaceDraft();
+      }
+    };
+    el?.addEventListener('input',save);
+    el?.addEventListener('change',save);
+  });
+
 document.addEventListener('click',event=>{
   if(!event.target.closest('.hs-field')) hideHsSuggestions();
 });
@@ -3181,6 +3233,8 @@ document.addEventListener('click',event=>{
 });
 
 window.addEventListener('popstate',()=>{
-  restoreWorkspaceDraft();
+  if(currentWorkspaceView()==='calculator') syncQuickDraftToEngine();
+  else syncEngineCoreToQuick();
+  persistWorkspaceDraft();
   applyWorkspaceView();
 });
