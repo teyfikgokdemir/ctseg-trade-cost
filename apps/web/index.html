@@ -180,18 +180,49 @@
     <section class="panel tax-rule-panel">
       <div class="panel-head">
         <div>
-          <h2>Ülke vergi kuralı</h2>
-          <p class="section-help">Hedef ülke için otomatik vergi modeli mevcutsa gösterilir. Oran doğrulanmadan sistem vergi uydurmaz.</p>
+          <h2>İthalat vergileri</h2>
+          <p class="section-help">Hedef ülkeye göre vergi desteğini gösterir. Sistem doğrulanmamış vergi oranını otomatik kullanmaz.</p>
         </div>
-        <button id="refreshTaxRule" type="button">Vergi kuralını yenile</button>
+        <button id="refreshTaxRule" type="button">Vergi bilgisini yenile</button>
       </div>
+
       <div class="route-stats">
-        <div class="tax-country-card"><span>Ülke</span><select id="taxRuleCountrySelect" aria-label="Vergi kuralı ülkesi"><option value="">Ülke seçin</option></select></div>
-        <div><span>Kural paketi</span><strong id="taxRuleStatus">Bekliyor</strong></div>
-        <div><span>Vergi modeli</span><strong id="taxRuleModel">—</strong></div>
-        <div><span>Oran politikası</span><strong id="taxRuleRatePolicy">—</strong></div>
+        <div class="tax-country-card"><span>Ülke</span><select id="taxRuleCountrySelect" aria-label="Vergi ülkesi"><option value="">Ülke seçin</option></select></div>
+        <div><span>Vergi desteği</span><strong id="taxRuleStatus">Bekliyor</strong></div>
+        <div><span>Vergi kapsamı</span><strong id="taxRuleModel">—</strong></div>
+        <div><span>Oran durumu</span><strong id="taxRuleRatePolicy">—</strong></div>
       </div>
-      <p id="taxRuleNote" class="section-help">İthalat ülkesi seçildiğinde kontrol edilir.</p>
+
+      <div class="tax-entry-box">
+        <div class="grid inputs">
+          <label>Doğrulanmış ithalat KDV / GST oranı (%)
+            <input id="verifiedImportTaxRate" type="number" min="0" step="0.01" placeholder="Örn. 20" />
+          </label>
+          <label>Vergi kaynağı
+            <select id="verifiedImportTaxSource">
+              <option value="OFFICIAL">Resmî kaynak</option>
+              <option value="LIVE">Canlı veri</option>
+              <option value="MANUAL" selected>Manuel doğrulama</option>
+            </select>
+          </label>
+          <label>Vergi türü
+            <select id="additionalTaxType">
+              <option value="VAT_GST">KDV / GST</option>
+              <option value="EXCISE">ÖTV / Excise</option>
+              <option value="SURCHARGE">Ek vergi / Surcharge</option>
+              <option value="IMPORT_LEVY">Import levy</option>
+              <option value="CUSTOMS_PROCESSING_FEE">Gümrük işlem ücreti</option>
+              <option value="OTHER_IMPORT_TAX">Diğer ithalat vergisi</option>
+            </select>
+          </label>
+        </div>
+        <div class="tax-entry-actions">
+          <button id="applyVerifiedImportTax" type="button">KDV / GST oranını uygula</button>
+          <button id="addAdditionalImportTax" type="button">Ek ithalat vergisi ekle</button>
+        </div>
+      </div>
+
+      <p id="taxRuleNote" class="section-help">İthalat ülkesi seçildiğinde vergi desteği kontrol edilir.</p>
     </section>
 
     <section class="panel route-panel">
