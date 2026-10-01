@@ -499,16 +499,26 @@ function shipment(){
   const count=positive('#containerCount')||0;
   const payload=positive('#payloadPerContainer')||0;
   const mt=count*payload;
-  return {count,payload,mt,kg:mt*1000,litres:mt*1000};
+  const kg=mt*1000;
+  const density=positive('#densityKgPerL');
+  const litres=density?kg/density:null;
+  return {count,payload,mt,kg,litres,density};
 }
 function purchaseBasis(){
   const s=shipment();
   const unit=document.querySelector('#priceUnit').value;
-  if(unit==='USD_L') return {qty:s.litres,suffix:'USD / litre'};
+  if(unit==='USD_L'){
+    if(!Number.isFinite(s.litres)||s.litres<=0) return {qty:null,suffix:'USD / litre',requiresDensity:true};
+    return {qty:s.litres,suffix:'USD / litre'};
+  }
   if(unit==='USD_KG') return {qty:s.kg,suffix:'USD / kg'};
   return {qty:s.mt,suffix:'USD / MT'};
 }
-function goodsTotal(){return (positive('#price')||0)*purchaseBasis().qty}
+function goodsTotal(){
+  const basis=purchaseBasis();
+  if(!Number.isFinite(basis.qty)||basis.qty<=0) return 0;
+  return (positive('#price')||0)*basis.qty;
+}
 
 function calculateRow(row,{excludeCustoms=false}={}){
   const s=shipment();
@@ -852,7 +862,7 @@ function syncShipment(){
 
 defaults.forEach(addRow);
 document.querySelector('#addCost').addEventListener('click',()=>addRow());
-['containerCount','payloadPerContainer','price','priceUnit'].forEach(id=>document.querySelector('#'+id).addEventListener('input',syncShipment));
+['containerCount','payloadPerContainer','price','priceUnit','densityKgPerL'].forEach(id=>document.querySelector('#'+id).addEventListener('input',syncShipment));
 ['origin','destination','containerType','transportMode','originCountry','exportCountry','importCountry','transitCountries'].forEach(id=>document.querySelector('#'+id).addEventListener('input',renderQuoteSummary));
 syncShipment();
 
@@ -2021,6 +2031,13 @@ document.querySelector('#clearCalculationHistory').addEventListener('click',asyn
 });
 
 document.querySelector('#calculate').addEventListener('click',()=>{
+  if(document.querySelector('#priceUnit').value==='USD_L' && !positive('#densityKgPerL')){
+    alert(currentLanguage==='en'
+      ? 'Density (kg/L) is required for litre-based pricing.'
+      : 'Litre bazlı fiyatlandırmada yoğunluk (kg/L) gereklidir.');
+    document.querySelector('#densityKgPerL').focus();
+    return;
+  }
   const notice=document.querySelector('#historySnapshotNotice');
   const incotermCheck=incotermAnalysis();
   if(!incotermCheck.compatible){
@@ -2363,7 +2380,11 @@ function applyWorkspaceView(){
   document.querySelectorAll('.workspace-section').forEach(section=>{
     const show=
       section.classList.contains('workspace-'+active) ||
-      (active!=='calculator' && section.classList.contains('workspace-advanced-core'));
+      ((active==='logistics'||active==='customs') && section.classList.contains('workspace-advanced-core'));
+    if(section.hasAttribute('data-calculation-results')){
+      if(active!=='calculator') section.hidden=true;
+      return;
+    }
     section.hidden=!show;
   });
 
@@ -2388,9 +2409,10 @@ function quickQuantityToMt(){
 }
 
 function updateQuickDensityVisibility(){
-  const unit=document.querySelector('#quickQuantityUnit')?.value;
+  const quantityUnit=document.querySelector('#quickQuantityUnit')?.value;
+  const priceUnit=document.querySelector('#quickPriceUnit')?.value;
   const wrap=document.querySelector('#quickDensityWrap');
-  if(wrap) wrap.hidden=unit!=='L';
+  if(wrap) wrap.hidden=!(quantityUnit==='L'||priceUnit==='USD_L');
 }
 
 async function resolveQuickHs(product){
@@ -2418,7 +2440,12 @@ function syncQuickToEngine(){
   const destination=document.querySelector('#quickImportCountry')?.value||'';
   const mode=document.querySelector('#quickTransportMode')?.value||'SEA';
   const mt=quickQuantityToMt();
+  const density=Number(document.querySelector('#quickDensity')?.value);
+  const densityRequired=priceUnit==='USD_L'||document.querySelector('#quickQuantityUnit')?.value==='L';
 
+  if(densityRequired && (!Number.isFinite(density)||density<=0)){
+    return {ok:false,reason:'DENSITY'};
+  }
   if(!product||!price||!origin||!destination||!mt){
     return {ok:false,reason:mt===null?'DENSITY':'FIELDS'};
   }
@@ -2426,6 +2453,8 @@ function syncQuickToEngine(){
   document.querySelector('#productName').value=product;
   document.querySelector('#price').value=String(price);
   document.querySelector('#priceUnit').value=priceUnit;
+  const quickDensity=Number(document.querySelector('#quickDensity')?.value);
+  document.querySelector('#densityKgPerL').value=Number.isFinite(quickDensity)&&quickDensity>0?String(quickDensity):'';
   document.querySelector('#originCountry').value=origin;
   document.querySelector('#exportCountry').value=origin;
   document.querySelector('#importCountry').value=destination;
@@ -2782,3 +2811,5 @@ applyWorkspaceView();
 document.querySelector('#quickQuantityUnit')?.addEventListener('change',updateQuickDensityVisibility);
 updateQuickDensityVisibility();
 document.querySelector('#quickCalculate')?.addEventListener('click',runQuickCalculation);
+
+document.querySelector('#quickPriceUnit')?.addEventListener('change',updateQuickDensityVisibility);
