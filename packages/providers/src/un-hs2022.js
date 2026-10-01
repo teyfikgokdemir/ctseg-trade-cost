@@ -99,6 +99,9 @@ export async function searchHs2022(query, limit = 10) {
       let score = 0;
 
       if (candidate.hsCode === rawQuery) score += 1000;
+      if (/^\d+$/.test(rawQuery) && candidate.hsCode.startsWith(rawQuery)) {
+        score += 700 - Math.min(500, candidate.hsCode.length - rawQuery.length);
+      }
       if (hay === normalized) score += 200;
       if (hay.includes(normalized)) score += 100;
 
@@ -114,9 +117,11 @@ export async function searchHs2022(query, limit = 10) {
         score,
         matchType: alias?.hsCode === candidate.hsCode
           ? "CURATED_ALIAS"
-          : hay.includes(normalized)
-            ? "TEXT"
-            : "TERM"
+          : (/^\d+$/.test(rawQuery) && candidate.hsCode.startsWith(rawQuery))
+            ? "CODE_PREFIX"
+            : hay.includes(normalized)
+              ? "TEXT"
+              : "TERM"
       };
     })
     .filter(x => x.score > 0)
