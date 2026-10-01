@@ -18,9 +18,21 @@ const STATIC_TRANSLATIONS={
   'Çıkış noktası':'Origin point',
   'Teslim noktası':'Delivery point',
   'İthalat ülkesi':'Import country',
-  'Konteyner tipi':'Container type',
-  'Konteyner sayısı':'Container count',
-  'Net yük / konteyner (MT)':'Net payload / container (MT)',
+  'Taşıma modu':'Transport mode',
+  'Taşıma ekipmanı':'Transport equipment',
+  'Ekipman sayısı':'Equipment count',
+  'Net yük / ekipman (MT)':'Net payload / equipment (MT)',
+  'Denizyolu':'Sea',
+  'Karayolu':'Road',
+  'Demiryolu':'Rail',
+  'Havayolu':'Air',
+  'Multimodal':'Multimodal',
+  '20 ft konteyner':'20 ft container',
+  '40 ft konteyner':'40 ft container',
+  'Kamyon / TIR':'Truck',
+  'Demiryolu vagonu':'Rail wagon',
+  'Hava kargo birimi':'Air cargo unit',
+  'Diğer':'Other',
   'Toplam net miktar (MT)':'Total net quantity (MT)',
   'Alış fiyatı':'Purchase price',
   'Fiyat birimi':'Price unit',
@@ -327,8 +339,8 @@ const weights={LIVE:1,OFFICIAL:.98,QUOTE:.92,MARKET_AVG:.82,MANUAL:.75,ESTIMATE:
 const spreads={LIVE:.02,OFFICIAL:.005,QUOTE:.04,MARKET_AVG:.10,MANUAL:.08,ESTIMATE:.18};
 const sourceLabelsTr={LIVE:'Canlı veri',OFFICIAL:'Resmî kaynak',QUOTE:'Güncel teklif',MARKET_AVG:'Piyasa ortalaması',MANUAL:'Manuel veri',ESTIMATE:'Tahmin'};
 const sourceLabelsEn={LIVE:'Live data',OFFICIAL:'Official source',QUOTE:'Current quote',MARKET_AVG:'Market average',MANUAL:'Manual data',ESTIMATE:'Estimate'};
-const methodLabelsTr={FIXED:'Sevkiyat başına',PER_CONTAINER:'Konteyner başına',PER_MT:'MT başına',PCT_GOODS:'Ürün bedelinin %',PCT_CUSTOMS:'Gümrük kıymetinin %',PCT_IMPORT_TAX:'Gümrük kıymeti + verginin %'};
-const methodLabelsEn={FIXED:'Per shipment',PER_CONTAINER:'Per container',PER_MT:'Per MT',PCT_GOODS:'% of goods value',PCT_CUSTOMS:'% of customs value',PCT_IMPORT_TAX:'% of customs value + duty'};
+const methodLabelsTr={FIXED:'Sevkiyat başına',PER_CONTAINER:'Ekipman başına',PER_MT:'MT başına',PCT_GOODS:'Ürün bedelinin %',PCT_CUSTOMS:'Gümrük kıymetinin %',PCT_IMPORT_TAX:'Gümrük kıymeti + verginin %'};
+const methodLabelsEn={FIXED:'Per shipment',PER_CONTAINER:'Per equipment',PER_MT:'Per MT',PCT_GOODS:'% of goods value',PCT_CUSTOMS:'% of customs value',PCT_IMPORT_TAX:'% of customs value + duty'};
 const sourceLabels=currentLanguage==='en'?sourceLabelsEn:sourceLabelsTr;
 const methodLabels=currentLanguage==='en'?methodLabelsEn:methodLabelsTr;
 const defaults=[
@@ -444,7 +456,7 @@ function syncShipment(){
 defaults.forEach(addRow);
 document.querySelector('#addCost').addEventListener('click',()=>addRow());
 ['containerCount','payloadPerContainer','price','priceUnit'].forEach(id=>document.querySelector('#'+id).addEventListener('input',syncShipment));
-['origin','destination','containerType'].forEach(id=>document.querySelector('#'+id).addEventListener('input',renderQuoteSummary));
+['origin','destination','containerType','transportMode','originCountry','exportCountry','importCountry','transitCountries'].forEach(id=>document.querySelector('#'+id).addEventListener('input',renderQuoteSummary));
 syncShipment();
 
 
@@ -722,9 +734,13 @@ async function persistQuoteToD1(quote){
       body:JSON.stringify({
         workspaceId,provider:quote.provider,rate:quote.rate,date:quote.date,
         validUntil:quote.validUntil,origin:quote.origin,destination:quote.destination,
-        equipment:quote.containerType,currency:'USD',sourceType:'QUOTE',
-        originCountry:document.querySelector('#originCountry')?.value||null,
+        equipment:quote.containerType,transportMode:quote.transportMode||document.querySelector('#transportMode')?.value||'SEA',
+        currency:'USD',sourceType:'QUOTE',
+        countryOfOrigin:document.querySelector('#originCountry')?.value||null,
+        exportCountry:document.querySelector('#exportCountry')?.value||null,
+        originCountry:document.querySelector('#exportCountry')?.value||null,
         destinationCountry:document.querySelector('#importCountry')?.value||null,
+        transitCountries:parseTransitCountries().codes||[],
         commodity:document.querySelector('#productName')?.value||null
       })
     });
@@ -893,6 +909,9 @@ async function restoreCalculationSnapshot(item){
   }
 
   const shipment=input.shipment||{};
+  if(shipment.transportMode && [...document.querySelector('#transportMode').options].some(o=>o.value===shipment.transportMode)){
+    document.querySelector('#transportMode').value=shipment.transportMode;
+  }
   if(shipment.containerType && [...document.querySelector('#containerType').options].some(o=>o.value===shipment.containerType)){
     document.querySelector('#containerType').value=shipment.containerType;
   }
@@ -947,9 +966,15 @@ async function restoreCalculationSnapshot(item){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function currentQuoteKey(){
+  const transit=parseTransitCountries();
   return {
     origin:normalizeText(document.querySelector('#origin').value),
     destination:normalizeText(document.querySelector('#destination').value),
+    countryOfOrigin:document.querySelector('#originCountry').value||null,
+    exportCountry:document.querySelector('#exportCountry').value||null,
+    importCountry:document.querySelector('#importCountry').value||null,
+    transitCountries:Array.isArray(transit)?transit:(transit.codes||[]),
+    transportMode:document.querySelector('#transportMode').value,
     containerType:document.querySelector('#containerType').value
   };
 }
@@ -967,7 +992,20 @@ function matchingQuotes(){
   const key=currentQuoteKey();
   const now=todayISO();
   return loadQuotes()
-    .filter(q=>normalizeText(q.origin)===key.origin&&normalizeText(q.destination)===key.destination&&q.containerType===key.containerType)
+    .filter(q=>{
+      const qTransit=Array.isArray(q.transitCountries)?q.transitCountries:(q.metadata?.transitCountries||[]);
+      const qExport=q.exportCountry||q.originCountry||q.metadata?.exportCountry||null;
+      const qImport=q.importCountry||q.destinationCountry||null;
+      const qOrigin=q.countryOfOrigin||q.metadata?.countryOfOrigin||null;
+      return normalizeText(q.origin)===key.origin
+        && normalizeText(q.destination)===key.destination
+        && q.containerType===key.containerType
+        && (q.transportMode||'ROAD')===key.transportMode
+        && (qExport||null)===(key.exportCountry||null)
+        && (qImport||null)===(key.importCountry||null)
+        && (qOrigin||null)===(key.countryOfOrigin||null)
+        && JSON.stringify(qTransit||[])===JSON.stringify(key.transitCountries||[]);
+    })
     .filter(q=>!q.validUntil||q.validUntil>=now)
     .sort((a,b)=>new Date(b.date)-new Date(a.date));
 }
@@ -1012,10 +1050,12 @@ async function loadFreightBenchmark(){
         workspaceId,
         origin:document.querySelector('#origin').value.trim(),
         destination:document.querySelector('#destination').value.trim(),
-        originCountry:document.querySelector('#originCountry').value||null,
+        originCountry:document.querySelector('#exportCountry').value||null,
         destinationCountry:document.querySelector('#importCountry').value||null,
+        countryOfOrigin:document.querySelector('#originCountry').value||null,
+        transitCountries:parseTransitCountries().codes||[],
         equipment:document.querySelector('#containerType').value,
-        transportMode:'ROAD',
+        transportMode:document.querySelector('#transportMode').value,
         distanceKm:lastRouteData?.distanceKm??null,
         units:Number(document.querySelector('#containerCount').value)||1,
         currency:'USD',
@@ -1132,7 +1172,12 @@ document.querySelector('#saveQuote').addEventListener('click',()=>{
     validUntil,
     origin:document.querySelector('#origin').value,
     destination:document.querySelector('#destination').value,
-    containerType:document.querySelector('#containerType').value
+    containerType:document.querySelector('#containerType').value,
+    transportMode:document.querySelector('#transportMode').value,
+    countryOfOrigin:document.querySelector('#originCountry').value||null,
+    exportCountry:document.querySelector('#exportCountry').value||null,
+    importCountry:document.querySelector('#importCountry').value||null,
+    transitCountries:parseTransitCountries().codes||[]
   });
   saveQuotes(quotes);
   document.querySelector('#quoteRate').value='';
@@ -1301,6 +1346,7 @@ document.querySelector('#calculate').addEventListener('click',()=>{
       commercialBufferPct:bufferPct
     },
     shipment:{
+      transportMode:document.querySelector('#transportMode').value,
       containerType:document.querySelector('#containerType').value,
       containerCount:s.count,
       payloadPerContainer:s.payload,
