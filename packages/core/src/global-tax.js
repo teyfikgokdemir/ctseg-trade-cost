@@ -43,6 +43,9 @@ export function createVerifiedGlobalTaxLine({
     throw new Error("baseCodes are required for a verified percentage tax line");
   }
 
+  if (rate === null || rate === undefined || rate === "") {
+    throw new Error("A verified non-negative tax rate is required");
+  }
   const numericRate = Number(rate);
   if (!Number.isFinite(numericRate) || numericRate < 0) {
     throw new Error("A verified non-negative tax rate is required");
