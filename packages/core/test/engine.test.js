@@ -383,3 +383,85 @@ test('verified preferential tariff requires eligibility, rate and scheme referen
   assert.equal(verified.basis, "PREFERENTIAL_VERIFIED");
   assert.equal(verified.requiresVerification, false);
 });
+
+
+test('trade remedies require verified rate, route, HS and legal/source reference', async () => {
+  const {
+    createVerifiedTradeRemedy,
+    TradeRemedyType,
+    TradeRemedyRateBasis
+  } = await import("../src/trade-remedies.js");
+
+  assert.throws(() => createVerifiedTradeRemedy({
+    type: TradeRemedyType.ANTI_DUMPING,
+    originCountry: "CN",
+    importCountry: "US",
+    hsCode: "730890",
+    rateBasis: TradeRemedyRateBasis.CUSTOMS_VALUE_PERCENT,
+    rate: 25
+  }), /reference is required/);
+
+  assert.throws(() => createVerifiedTradeRemedy({
+    type: TradeRemedyType.COUNTERVAILING,
+    originCountry: "CN",
+    importCountry: "US",
+    hsCode: "ABC",
+    rate: 5,
+    reference: "official case"
+  }), /hsCode must be 6-10 digits/);
+});
+
+test('trade remedy engine resolves customs-value, goods-value, per-MT and fixed bases', async () => {
+  const {
+    createVerifiedTradeRemedy,
+    resolveTradeRemedyAmount,
+    TradeRemedyType,
+    TradeRemedyRateBasis
+  } = await import("../src/trade-remedies.js");
+
+  const ad = createVerifiedTradeRemedy({
+    type: TradeRemedyType.ANTI_DUMPING,
+    originCountry: "CN",
+    importCountry: "US",
+    hsCode: "730890",
+    rateBasis: TradeRemedyRateBasis.CUSTOMS_VALUE_PERCENT,
+    rate: 25,
+    reference: "verified official case"
+  });
+  assert.equal(resolveTradeRemedyAmount(ad,{customsValue:1000,goodsValue:900,quantityMt:2}),250);
+
+  const safeguard = createVerifiedTradeRemedy({
+    type: TradeRemedyType.SAFEGUARD,
+    originCountry: "TR",
+    importCountry: "MA",
+    hsCode: "720839",
+    rateBasis: TradeRemedyRateBasis.PER_MT,
+    rate: 50,
+    reference: "verified official measure"
+  });
+  assert.equal(resolveTradeRemedyAmount(safeguard,{customsValue:1000,goodsValue:900,quantityMt:2}),100);
+
+  const fixed = createVerifiedTradeRemedy({
+    type: TradeRemedyType.OTHER_TRADE_REMEDY,
+    originCountry: "BR",
+    importCountry: "JP",
+    hsCode: "080212",
+    rateBasis: TradeRemedyRateBasis.FIXED,
+    rate: 75,
+    reference: "verified official measure"
+  });
+  assert.equal(resolveTradeRemedyAmount(fixed,{customsValue:1000,goodsValue:900,quantityMt:2}),75);
+});
+
+test('unresolved trade remedy candidate never invents a zero rate', async () => {
+  const { createUnresolvedTradeRemedyCandidate, TradeRemedyType } = await import("../src/trade-remedies.js");
+  const r = createUnresolvedTradeRemedyCandidate({
+    type: TradeRemedyType.RETALIATORY_TARIFF,
+    originCountry: "CN",
+    importCountry: "US",
+    hsCode: "850760"
+  });
+  assert.equal(r.rate, null);
+  assert.equal(r.verified, false);
+  assert.equal(r.requiresVerification, true);
+});
