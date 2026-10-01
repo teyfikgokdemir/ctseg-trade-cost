@@ -1600,12 +1600,11 @@ async function loadFreightBenchmark(){
   if(!lastRouteData && !matches.length){
     expectedEl.textContent='—';
     rangeEl.textContent='—';
-    confidenceEl.textContent=currentLanguage==='en'?'No benchmark':'Benchmark yok';
+    confidenceEl.textContent=currentLanguage==='en'?'Searching history…':'Geçmiş aranıyor…';
     sourcesEl.textContent='—';
     noteEl.textContent=currentLanguage==='en'
-      ? 'Calculate the route or save a valid forwarder quote first.'
-      : 'Önce rotayı hesaplayın veya geçerli bir forwarder teklifi kaydedin.';
-    return null;
+      ? 'No direct route/quote yet; checking recent country-pair freight history.'
+      : 'Doğrudan rota/teklif yok; yakın tarihli ülke-pair navlun geçmişi kontrol ediliyor.';
   }
 
   const seq=++freightBenchmarkSeq;
@@ -1700,6 +1699,29 @@ async function loadFreightBenchmark(){
     noteEl.textContent=currentLanguage==='en'?'Freight benchmark could not be calculated.':'Navlun benchmark hesaplanamadı.';
     return null;
   }
+}
+
+function applyFreightBenchmarkToCost(result){
+  if(!result || result.status!=='BENCHMARK_READY' || !Number.isFinite(Number(result.expectedPerUnit))) return false;
+  const freight=findFreightRow();
+  if(!freight) return false;
+
+  const source=(result.quoteCount||0)===1 && (result.sampleCount||0)===1
+    ? 'QUOTE'
+    : (result.quoteCount||0)>0 || (result.marketSampleCount||0)>0
+      ? 'MARKET_AVG'
+      : 'ESTIMATE';
+
+  freight.dataset.backhaulOriginalRate='';
+  freight.dataset.freightBenchmarkApplied='true';
+  freight.querySelector('.method').value='PER_CONTAINER';
+  freight.querySelector('.rate').value=String(Number(result.expectedPerUnit.toFixed(2)));
+  freight.querySelector('.source').value=source;
+  freight.querySelector('.label').value=currentLanguage==='en'
+    ? 'International freight'
+    : 'Uluslararası navlun';
+  refreshCalculatedAmounts();
+  return true;
 }
 
 function findFreightRow(){
@@ -2604,7 +2626,10 @@ async function runQuickCalculation(){
   await loadTariff();
   await loadCountryTaxProfile();
   await loadOfficialImportTax();
-  await loadFreightBenchmark();
+  const freightBenchmark=await loadFreightBenchmark();
+  if(freightBenchmark?.status==='BENCHMARK_READY'){
+    applyFreightBenchmarkToCost(freightBenchmark);
+  }
 
   const missing=quickMissingData();
   if(missing.length){
