@@ -96,3 +96,29 @@
   outline-offset:4px;
   border-radius:6px;
 }
+
+
+.preferential-box{
+  margin-top:16px;
+  padding-top:16px;
+  border-top:1px solid #223536;
+}
+.preferential-head{
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  align-items:flex-start;
+}
+.preferential-head div{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.preferential-head strong{
+  font-size:14px;
+}
+.preferential-head small{
+  color:#7f9395;
+  font-size:12px;
+  line-height:1.5;
+}
