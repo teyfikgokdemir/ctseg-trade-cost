@@ -192,3 +192,38 @@ select option:disabled{
 @media(max-width:560px){
   .remedy-reference-field{grid-column:auto}
 }
+
+
+.remedy-source-list{
+  display:grid;
+  gap:10px;
+  margin-top:14px;
+}
+.remedy-source-card{
+  border:1px solid #2a3c3e;
+  border-radius:14px;
+  padding:13px 14px;
+  background:rgba(255,255,255,.012);
+}
+.remedy-source-card.muted{color:#819395}
+.remedy-source-card.warning{border-color:#6c4a33;color:#e1b28d}
+.remedy-source-top{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+}
+.remedy-source-top strong{font-size:14px}
+.remedy-source-top span{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  color:#8fb5af;
+  border:1px solid #294143;
+  border-radius:999px;
+  padding:3px 7px;
+}
+.remedy-source-card small{display:block;color:#7f9395;margin-top:4px}
+.remedy-source-card p{font-size:12px;color:#9cafb0;margin:9px 0}
+.remedy-source-card ul{margin:8px 0 10px;padding-left:18px;color:#8fa1a2;font-size:12px;line-height:1.45}
+.remedy-source-card a{font-size:12px;color:#b9dfd8}
