@@ -169,6 +169,11 @@ document.querySelector('#calculate').addEventListener('click',()=>{
   document.querySelector('#shipmentMeta').textContent=`${money(s.mt,2)} MT toplam net yük`;
   document.querySelector('#confidence').textContent=confidence+'%';
 
+  const bufferPct=Math.max(0,Number(document.querySelector('#commercialBuffer').value)||0);
+  const safeTotal=high+(extra*(bufferPct/100));
+  const safeUnit=safeTotal/basis.qty;
+  document.querySelector('#safeTotal').textContent='
+
   document.querySelector('#breakdownText').innerHTML=`
     <span>Ürün</span><strong>$${money(goods,0)}</strong>
     <span>+</span>
@@ -219,3 +224,162 @@ async function loadFx(){
 
 document.querySelector('#refreshFx').addEventListener('click',loadFx);
 loadFx();
++money(safeTotal,0);
+  document.querySelector('#safeUnit').textContent='
+
+  document.querySelector('#breakdownText').innerHTML=`
+    <span>Ürün</span><strong>$${money(goods,0)}</strong>
+    <span>+</span>
+    <span>Ek maliyetler</span><strong>$${money(extra,0)}</strong>
+    <span>=</span>
+    <span>Nihai toplam</span><strong>$${money(total,0)}</strong>
+  `;
+
+  document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
+  document.querySelector('#routeText').textContent=
+    `${document.querySelector('#productName').value} · ${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${s.count} × ${document.querySelector('#containerType').value}`;
+
+  document.querySelector('#results').hidden=false;
+});
+
+async function loadFx(){
+  const button=document.querySelector('#refreshFx');
+  const rateEl=document.querySelector('#fxRate');
+  const metaEl=document.querySelector('#fxMeta');
+  const base=document.querySelector('#fxBase').value.trim().toUpperCase();
+  const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
+
+  if(!/^[A-Z]{3}$/.test(base)||!/^[A-Z]{3}$/.test(quote)){
+    rateEl.textContent='Geçersiz para birimi';
+    metaEl.textContent='Örnek: USD, EUR, TRY';
+    return;
+  }
+
+  button.disabled=true;
+  button.textContent='Yükleniyor…';
+  try{
+    const response=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`,{cache:'no-store'});
+    if(!response.ok) throw new Error('Kur verisi alınamadı');
+    const data=await response.json();
+    rateEl.textContent=`1 ${base} = ${money(Number(data.rate),4)} ${quote}`;
+    const dateText=data.date
+      ? new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z'))
+      : 'Güncel';
+    metaEl.textContent=`${dateText} · ${data.sourceName||'Referans kur'}`;
+  }catch{
+    rateEl.textContent='Kur verisi alınamadı';
+    metaEl.textContent='API bağlantısı henüz aktif değil veya deploy tamamlanmadı.';
+  }finally{
+    button.disabled=false;
+    button.textContent='Kuru yenile';
+  }
+}
+
+document.querySelector('#refreshFx').addEventListener('click',loadFx);
+loadFx();
++money(safeUnit,4);
+  document.querySelector('#safeUnitLabel').textContent=basis.suffix;
+  document.querySelector('#safeTotalMeta').textContent=`Üst maliyet aralığı + %${money(bufferPct,1)} ticari koruma payı`;
+
+  document.querySelector('#breakdownText').innerHTML=`
+    <span>Ürün</span><strong>$${money(goods,0)}</strong>
+    <span>+</span>
+    <span>Ek maliyetler</span><strong>$${money(extra,0)}</strong>
+    <span>=</span>
+    <span>Nihai toplam</span><strong>$${money(total,0)}</strong>
+  `;
+
+  document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
+  document.querySelector('#routeText').textContent=
+    `${document.querySelector('#productName').value} · ${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${s.count} × ${document.querySelector('#containerType').value}`;
+
+  document.querySelector('#results').hidden=false;
+});
+
+async function loadFx(){
+  const button=document.querySelector('#refreshFx');
+  const rateEl=document.querySelector('#fxRate');
+  const metaEl=document.querySelector('#fxMeta');
+  const base=document.querySelector('#fxBase').value.trim().toUpperCase();
+  const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
+
+  if(!/^[A-Z]{3}$/.test(base)||!/^[A-Z]{3}$/.test(quote)){
+    rateEl.textContent='Geçersiz para birimi';
+    metaEl.textContent='Örnek: USD, EUR, TRY';
+    return;
+  }
+
+  button.disabled=true;
+  button.textContent='Yükleniyor…';
+  try{
+    const response=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`,{cache:'no-store'});
+    if(!response.ok) throw new Error('Kur verisi alınamadı');
+    const data=await response.json();
+    rateEl.textContent=`1 ${base} = ${money(Number(data.rate),4)} ${quote}`;
+    const dateText=data.date
+      ? new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z'))
+      : 'Güncel';
+    metaEl.textContent=`${dateText} · ${data.sourceName||'Referans kur'}`;
+  }catch{
+    rateEl.textContent='Kur verisi alınamadı';
+    metaEl.textContent='API bağlantısı henüz aktif değil veya deploy tamamlanmadı.';
+  }finally{
+    button.disabled=false;
+    button.textContent='Kuru yenile';
+  }
+}
+
+document.querySelector('#refreshFx').addEventListener('click',loadFx);
+loadFx();
+
+
+async function calculateRoute(){
+  const btn=document.querySelector('#calculateRoute');
+  const origin=document.querySelector('#origin').value.trim();
+  const destination=document.querySelector('#destination').value.trim();
+  const grossWeightKg=Number(document.querySelector('#grossWeightKg').value)||40000;
+  const heightCm=Number(document.querySelector('#heightCm').value)||400;
+
+  btn.disabled=true;
+  btn.textContent='Hesaplanıyor…';
+  document.querySelector('#routeStatus').textContent='Yükleniyor';
+
+  try{
+    const params=new URLSearchParams({
+      origin,
+      destination,
+      grossWeightKg:String(grossWeightKg),
+      heightCm:String(heightCm)
+    });
+    const res=await fetch('/api/route?'+params.toString(),{cache:'no-store'});
+    const data=await res.json();
+
+    if(!res.ok){
+      if(data.status==='NOT_CONFIGURED'){
+        document.querySelector('#routeStatus').textContent='API anahtarı gerekli';
+        document.querySelector('#routeDistance').textContent='—';
+        document.querySelector('#routeDuration').textContent='—';
+        document.querySelector('#routeTolls').textContent='—';
+        return;
+      }
+      throw new Error(data.message||data.error||'Rota alınamadı');
+    }
+
+    document.querySelector('#routeDistance').textContent=money(data.distanceKm,0)+' km';
+    document.querySelector('#routeDuration').textContent=money(data.durationHours,1)+' saat';
+
+    const tollEntries=Object.entries(data.tollTotals||{});
+    document.querySelector('#routeTolls').textContent=tollEntries.length
+      ? tollEntries.map(([currency,value])=>money(value,2)+' '+currency).join(' + ')
+      : 'Yok / veri yok';
+
+    document.querySelector('#routeStatus').textContent='Canlı rota';
+  }catch(error){
+    document.querySelector('#routeStatus').textContent='Rota alınamadı';
+  }finally{
+    btn.disabled=false;
+    btn.textContent='Rotayı hesapla';
+  }
+}
+
+document.querySelector('#calculateRoute').addEventListener('click',calculateRoute);
