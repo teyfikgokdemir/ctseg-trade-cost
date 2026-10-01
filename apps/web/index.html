@@ -14,7 +14,7 @@
         <h1>Toplam Teslim Maliyeti</h1>
         <p class="sub">Konteyner, ürün, rota ve ülke bazında ithalat / ihracat maliyet motoru.</p>
       </div>
-      <span class="badge">MVP v0.4</span>
+      <span class="badge">MVP v0.5</span>
     </header>
 
     <section class="panel">
@@ -26,22 +26,12 @@
       </div>
 
       <div class="grid inputs">
-        <label>Ürün
-          <input id="productName" value="Ayçiçek yağı" />
-        </label>
-        <label>HS Code
-          <input id="hsCode" placeholder="Örn. 1512..." />
-        </label>
-        <label>Menşe ülke
-          <input id="originCountry" value="Türkiye" />
-        </label>
+        <label>Ürün<input id="productName" value="Ayçiçek yağı" /></label>
+        <label>HS Code<input id="hsCode" placeholder="Örn. 1512..." /></label>
+        <label>Menşe ülke<input id="originCountry" value="Türkiye" /></label>
 
-        <label>Çıkış noktası
-          <input id="origin" value="Edirne, Türkiye" />
-        </label>
-        <label>Teslim noktası
-          <input id="destination" value="Herat, Afganistan" />
-        </label>
+        <label>Çıkış noktası<input id="origin" value="Edirne, Türkiye" /></label>
+        <label>Teslim noktası<input id="destination" value="Herat, Afganistan" /></label>
         <label>Incoterm
           <select id="incoterm">
             <option>EXW</option><option>FCA</option><option>FOB</option>
@@ -55,19 +45,11 @@
             <option value="40FT" selected>40 ft</option>
           </select>
         </label>
-        <label>Konteyner sayısı
-          <input id="containerCount" type="number" min="1" step="1" value="4" />
-        </label>
-        <label>Net yük / konteyner (MT)
-          <input id="payloadPerContainer" type="number" min="0.1" step="0.1" value="25" />
-        </label>
+        <label>Konteyner sayısı<input id="containerCount" type="number" min="1" step="1" value="4" /></label>
+        <label>Net yük / konteyner (MT)<input id="payloadPerContainer" type="number" min="0.1" step="0.1" value="25" /></label>
 
-        <label>Toplam net miktar (MT)
-          <input id="totalMt" type="number" value="100" readonly />
-        </label>
-        <label>Alış fiyatı
-          <input id="price" type="number" min="0" step="0.01" value="1.80" />
-        </label>
+        <label>Toplam net miktar (MT)<input id="totalMt" type="number" value="100" readonly /></label>
+        <label>Alış fiyatı<input id="price" type="number" min="0" step="0.01" value="1.80" /></label>
         <label>Fiyat birimi
           <select id="priceUnit">
             <option value="USD_L" selected>USD / Litre</option>
@@ -78,25 +60,18 @@
       </div>
     </section>
 
-
     <section class="panel route-panel">
       <div class="panel-head">
         <div>
           <h2>Rota ve taşıma doğrulama</h2>
-          <p class="section-help">Kamyon rotası, mesafe ve mevcutsa yol ücretleri gerçek rota sağlayıcısından alınır.</p>
+          <p class="section-help">Gerçek rota sağlayıcısı bağlandığında mesafe, sürüş süresi ve mevcut yol ücretleri burada doğrulanır.</p>
         </div>
         <button id="calculateRoute">Rotayı hesapla</button>
       </div>
       <div class="grid inputs">
-        <label>Araç brüt ağırlığı (kg)
-          <input id="grossWeightKg" type="number" value="40000" step="1000" />
-        </label>
-        <label>Araç yüksekliği (cm)
-          <input id="heightCm" type="number" value="400" step="10" />
-        </label>
-        <label>Ticari koruma payı (%)
-          <input id="commercialBuffer" type="number" value="5" min="0" max="50" step="0.5" />
-        </label>
+        <label>Araç brüt ağırlığı (kg)<input id="grossWeightKg" type="number" value="40000" step="1000" /></label>
+        <label>Araç yüksekliği (cm)<input id="heightCm" type="number" value="400" step="10" /></label>
+        <label>Ticari koruma payı (%)<input id="commercialBuffer" type="number" value="5" min="0" max="50" step="0.5" /></label>
       </div>
       <div class="route-stats">
         <div><span>Mesafe</span><strong id="routeDistance">—</strong></div>
@@ -125,6 +100,33 @@
     <section class="panel">
       <div class="panel-head">
         <div>
+          <h2>Forwarder teklif havuzu</h2>
+          <p class="section-help">Gerçek teklifleri kaydet. Sistem aynı rota ve konteyner tipindeki geçerli tekliflerden güncel değer üretir.</p>
+        </div>
+        <button id="applyQuoteAverage">Uygun navlunu uygula</button>
+      </div>
+
+      <div class="quote-form">
+        <label>Firma / forwarder<input id="quoteProvider" placeholder="Örn. ABC Lojistik" /></label>
+        <label>USD / konteyner<input id="quoteRate" type="number" min="0" step="1" placeholder="5600" /></label>
+        <label>Teklif tarihi<input id="quoteDate" type="date" /></label>
+        <label>Geçerlilik sonu<input id="quoteValidUntil" type="date" /></label>
+        <button id="saveQuote" type="button">Teklifi kaydet</button>
+      </div>
+
+      <div class="quote-summary">
+        <div><span>Eşleşen teklif</span><strong id="matchedQuoteCount">0</strong></div>
+        <div><span>Güncel ortalama</span><strong id="matchedQuoteAverage">—</strong></div>
+        <div><span>Son teklif</span><strong id="latestQuoteValue">—</strong></div>
+        <div><span>Veri durumu</span><strong id="quoteDataStatus">Veri yok</strong></div>
+      </div>
+
+      <div id="quoteList" class="quote-list"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
           <h2>Maliyet kalemleri</h2>
           <p class="section-help">Tüm sonuçlar USD olarak normalize edilir. Hesaplama yöntemi her kaleme ayrı uygulanır.</p>
         </div>
@@ -132,12 +134,7 @@
       </div>
 
       <div class="cost-head">
-        <span>Açıklama</span>
-        <span>Yöntem</span>
-        <span>Birim değer</span>
-        <span>Kaynak</span>
-        <span>Hesaplanan</span>
-        <span></span>
+        <span>Açıklama</span><span>Yöntem</span><span>Birim değer</span><span>Kaynak</span><span>Hesaplanan</span><span></span>
       </div>
       <div id="costRows"></div>
     </section>
@@ -145,70 +142,30 @@
     <button id="calculate" class="primary">Toplam teslim maliyetini hesapla</button>
 
     <section class="results" id="results" hidden>
-      <div class="metric strong">
-        <span>Nihai birim maliyet</span>
-        <b id="unitFinal">—</b>
-        <small id="unitFinalLabel">USD / litre</small>
-      </div>
-      <div class="metric">
-        <span>Ürün EXW maliyeti</span>
-        <b id="goodsTotal">—</b>
-        <small>USD · ürün bedeli</small>
-      </div>
-      <div class="metric">
-        <span>EXW sonrası ek maliyet</span>
-        <b id="extraTotal">—</b>
-        <small>USD · lojistik, gümrük, vergi vb.</small>
-      </div>
-      <div class="metric">
-        <span>Nihai toplam maliyet</span>
-        <b id="total">—</b>
-        <small>USD · ürün + tüm ek maliyetler</small>
-      </div>
+      <div class="metric strong"><span>Nihai birim maliyet</span><b id="unitFinal">—</b><small id="unitFinalLabel">USD / litre</small></div>
+      <div class="metric"><span>Ürün EXW maliyeti</span><b id="goodsTotal">—</b><small>USD · ürün bedeli</small></div>
+      <div class="metric"><span>EXW sonrası ek maliyet</span><b id="extraTotal">—</b><small>USD · lojistik, gümrük, vergi vb.</small></div>
+      <div class="metric"><span>Nihai toplam maliyet</span><b id="total">—</b><small>USD · ürün + tüm ek maliyetler</small></div>
 
-      <div class="metric">
-        <span>Ürün birim fiyatı</span>
-        <b id="goodsUnit">—</b>
-        <small id="goodsUnitLabel">USD / litre</small>
-      </div>
-      <div class="metric">
-        <span>Ek maliyet / birim</span>
-        <b id="extraUnit">—</b>
-        <small id="extraUnitLabel">USD / litre</small>
-      </div>
-      <div class="metric">
-        <span>Toplam sevkiyat</span>
-        <b id="shipmentSummary">—</b>
-        <small id="shipmentMeta">—</small>
-      </div>
-      <div class="metric">
-        <span>Veri güveni</span>
-        <b id="confidence">—</b>
-        <small>hesap güven seviyesi</small>
-      </div>
+      <div class="metric"><span>Ürün birim fiyatı</span><b id="goodsUnit">—</b><small id="goodsUnitLabel">USD / litre</small></div>
+      <div class="metric"><span>Ek maliyet / birim</span><b id="extraUnit">—</b><small id="extraUnitLabel">USD / litre</small></div>
+      <div class="metric"><span>Toplam sevkiyat</span><b id="shipmentSummary">—</b><small id="shipmentMeta">—</small></div>
+      <div class="metric"><span>Veri güveni</span><b id="confidence">—</b><small>hesap güven seviyesi</small></div>
 
-      <div class="metric safe-cost">
-        <span>Koruma paylı toplam maliyet</span>
-        <b id="safeTotal">—</b>
-        <small id="safeTotalMeta">Belirsizlik + ticari koruma payı</small>
-      </div>
-      <div class="metric safe-cost">
-        <span>Koruma paylı birim maliyet</span>
-        <b id="safeUnit">—</b>
-        <small id="safeUnitLabel">USD / litre</small>
-      </div>
+      <div class="metric safe-cost"><span>Koruma paylı toplam maliyet</span><b id="safeTotal">—</b><small id="safeTotalMeta">Belirsizlik + ticari koruma payı</small></div>
+      <div class="metric safe-cost"><span>Koruma paylı birim maliyet</span><b id="safeUnit">—</b><small id="safeUnitLabel">USD / litre</small></div>
+      <div class="metric risk-card"><span>Tahmini gider oranı</span><b id="estimateShare">—</b><small>Toplam ek maliyet içindeki tahmini veri</small></div>
+      <div class="metric risk-card"><span>Ticari durum</span><b id="commercialStatus">—</b><small id="commercialStatusMeta">—</small></div>
 
+      <div id="riskMessage" class="risk-message"></div>
       <div class="breakdown" id="breakdownText"></div>
-      <div class="range">
-        <span>Beklenen maliyet aralığı</span>
-        <strong id="range">—</strong>
-      </div>
+      <div class="range"><span>Beklenen maliyet aralığı</span><strong id="range">—</strong></div>
       <div class="route" id="routeText"></div>
     </section>
 
     <section class="panel note">
       <h2>Veri politikası</h2>
-      <p>Navlun konteyner/araç bazlı; gümrük ve vergi kalemleri HS Code, menşe, hedef ülke ve ilgili matrah üzerinden hesaplanır. Canlı ve resmî kaynaklar tahminlerin önüne geçer.</p>
+      <p>Navlun konteyner/araç bazlı; gümrük ve vergi kalemleri HS Code, menşe, hedef ülke ve ilgili matrah üzerinden hesaplanır. Gerçek teklifler ve resmî veriler tahminlerin önüne geçer.</p>
     </section>
   </main>
 
