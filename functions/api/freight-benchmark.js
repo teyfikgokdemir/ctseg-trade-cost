@@ -16,6 +16,7 @@ async function readHistoricalBenchmark(env, body) {
       AND lower(origin_city) = lower(?)
       AND lower(destination_city) = lower(?)
       AND equipment = ?
+      AND distance_km > 0
       AND datetime(created_at) >= datetime('now', '-90 days')
     ORDER BY datetime(created_at) DESC
     LIMIT 1
@@ -144,11 +145,17 @@ export async function onRequestPost({ request, env }) {
     if (!usedHistoricalFallback && result.status === "BENCHMARK_READY") {
       historyPersistence.attempted = true;
       try {
-        historyPersistence.persisted = await writeBenchmarkHistory(env, body, result);
-        if (!historyPersistence.persisted) {
-          historyPersistence.reason = env?.DB
-            ? "MISSING_WORKSPACE_OR_ROUTE_METADATA"
-            : "DB_NOT_CONFIGURED";
+        const persistenceResult = await writeBenchmarkHistory(env, body, result);
+        if (persistenceResult === "DEDUPED") {
+          historyPersistence.persisted = false;
+          historyPersistence.reason = "RECENT_IDENTICAL_BENCHMARK_EXISTS";
+        } else {
+          historyPersistence.persisted = persistenceResult === true;
+          if (!historyPersistence.persisted) {
+            historyPersistence.reason = env?.DB
+              ? "MISSING_ROUTE_DISTANCE_OR_METADATA"
+              : "DB_NOT_CONFIGURED";
+          }
         }
       } catch (error) {
         historyPersistence.error = error instanceof Error ? error.message : String(error);
