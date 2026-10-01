@@ -26,14 +26,21 @@ function json(body, status = 200, cache = "public, max-age=21600") {
   });
 }
 
+function buildPeriodWindow(year) {
+  if (!year) return "default";
+  const end = Number(year);
+  const start = Math.max(1996, end - 7);
+  return `${start}-${end}`;
+}
+
 async function lookupTariffs(apiKey, { hs, reporter, partner, year }) {
   const base = {
     r: reporter,
     pc: hs,
-    ps: year || "default",
+    ps: buildPeriodWindow(year),
     fmt: "json",
     mode: "full",
-    max: "100",
+    max: "500",
     lang: "1"
   };
 
@@ -123,6 +130,7 @@ export async function onRequestGet({ request, env }) {
           partner: partner || null
         },
         requestedYear: year || "default/latest available",
+        queriedPeriod: buildPeriodWindow(year),
         indicators: {
           mfnAverage: {
             code: "HS_A_0010",
@@ -142,6 +150,9 @@ export async function onRequestGet({ request, env }) {
         },
         interpretation: {
           mfn: "MFN is the default WTO applied-tariff reference for this HS code/reporting economy.",
+          yearFallback: year
+            ? "The WTO query includes the requested year and the previous 7 years so the application can resolve the latest available official observation without relabelling older data as the requested year."
+            : "The WTO default period selection is used.",
           preferential: partner
             ? "A preferential observation is partner-specific evidence only; eligibility still depends on the applicable trade arrangement and rules of origin."
             : "No partner was supplied, so no preferential-tariff query was made."
