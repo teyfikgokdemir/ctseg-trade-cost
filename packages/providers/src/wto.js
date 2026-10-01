@@ -16,6 +16,28 @@ function normalizeWtoError(status, body) {
   };
 }
 
+export function parseWtoResponseBody(text, status = 200) {
+  const body = String(text || "").trim();
+
+  if (!body) {
+    return {
+      status: "NO_DATA",
+      httpStatus: status,
+      data: []
+    };
+  }
+
+  try {
+    return JSON.parse(body);
+  } catch {
+    return {
+      status: "NON_JSON_RESPONSE",
+      httpStatus: status,
+      raw: body.slice(0, 1000)
+    };
+  }
+}
+
 export async function fetchWtoIndicators(apiKey) {
   if (!apiKey) throw new Error("WTO_API_KEY is not configured");
 
@@ -39,7 +61,7 @@ export async function fetchWtoIndicators(apiKey) {
     });
   }
 
-  return JSON.parse(text);
+  return parseWtoResponseBody(text, response.status);
 }
 
 export async function fetchWtoTimeseries(apiKey, params) {
@@ -63,7 +85,7 @@ export async function fetchWtoTimeseries(apiKey, params) {
     });
   }
 
-  return JSON.parse(text);
+  return parseWtoResponseBody(text, response.status);
 }
 
 export function createWtoTariffProvider(apiKey) {
