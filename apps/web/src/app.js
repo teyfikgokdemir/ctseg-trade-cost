@@ -694,6 +694,13 @@ async function loadFreightBenchmark(){
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
+        workspaceId,
+        origin:document.querySelector('#origin').value.trim(),
+        destination:document.querySelector('#destination').value.trim(),
+        originCountry:document.querySelector('#originCountry').value||null,
+        destinationCountry:document.querySelector('#importCountry').value||null,
+        equipment:document.querySelector('#containerType').value,
+        transportMode:'ROAD',
         distanceKm:lastRouteData?.distanceKm??null,
         units:Number(document.querySelector('#containerCount').value)||1,
         currency:'USD',
@@ -727,9 +734,13 @@ async function loadFreightBenchmark(){
       ? {HIGH:'High',MEDIUM:'Medium',LOW:'Low'}[r.confidence]
       : {HIGH:'Yüksek',MEDIUM:'Orta',LOW:'Düşük'}[r.confidence])+' · '+r.confidencePct+'%';
     sourcesEl.textContent=(r.sourceMix||[]).map(x=>freightSourceLabel(x.sourceType)+' × '+x.count).join(' + ')||'—';
-    noteEl.textContent=currentLanguage==='en'
-      ? `Benchmark uses ${r.sampleCount} evidence item(s). Route/toll extras and the commercial buffer are applied separately.`
-      : `Benchmark ${r.sampleCount} veri noktasına dayanıyor. Rota/toll ekleri ve ticari koruma payı ayrı uygulanıyor.`;
+    noteEl.textContent=data.historicalFallback
+      ? (currentLanguage==='en'
+        ? 'No direct quote was available; a recent D1 historical benchmark was used as a low-confidence fallback.'
+        : 'Doğrudan teklif bulunmadığı için yakın tarihli D1 geçmiş benchmark düşük güvenli fallback olarak kullanıldı.')
+      : (currentLanguage==='en'
+        ? `Benchmark uses ${r.sampleCount} evidence item(s). Route/toll extras and the commercial buffer are applied separately.`
+        : `Benchmark ${r.sampleCount} veri noktasına dayanıyor. Rota/toll ekleri ve ticari koruma payı ayrı uygulanıyor.`);
     return r;
   }catch{
     if(seq!==freightBenchmarkSeq) return null;
