@@ -150,6 +150,7 @@
         <label>Net yük / ekipman (MT)<input id="payloadPerContainer" type="number" min="0.1" step="0.1" /></label>
 
         <label>Toplam net miktar (MT)<input id="totalMt" type="number" readonly /></label>
+        <label>Yoğunluk (kg/L)<input id="densityKgPerL" type="number" min="0.01" step="0.001" placeholder="Litre bazlı hesap için" /></label>
         <label>Alış fiyatı<input id="price" type="number" min="0" step="0.01" /></label>
         <label>Fiyat birimi
           <select id="priceUnit">
@@ -541,7 +542,7 @@
 
     <button id="calculate" class="primary">Toplam teslim maliyetini hesapla</button>
 
-    <section class="results workspace-section workspace-calculator" id="results" hidden>
+    <section class="results workspace-section workspace-calculator" id="results" data-calculation-results hidden>
       <div class="metric strong"><span>Nihai birim maliyet</span><b id="unitFinal">—</b><small id="unitFinalLabel">USD / litre</small></div>
       <div class="metric"><span>Tedarikçi fiyat değeri</span><b id="goodsTotal">—</b><small>USD · seçilen Incoterm fiyat kapsamı</small></div>
       <div class="metric"><span>Ek landed-cost</span><b id="extraTotal">—</b><small>USD · tedarikçi fiyatına dahil olmayan maliyetler</small></div>
