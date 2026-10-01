@@ -80,3 +80,18 @@ No placeholder value may be surfaced as LIVE or OFFICIAL.
   - `HS_A_0020` MFN maximum ad valorem duty
   - `HS_P_0070` partner-specific lowest preferential tariff observation
 - Preferential observations do not by themselves establish eligibility; origin rules and the applicable arrangement still need confirmation.
+
+
+## Global tax engine / Türkiye rule pack
+- Tax lines are country adapters feeding the global landed-cost engine; tax law is not hard-coded into the core.
+- Generic percentage tax bases use `calc: pct_codes` with explicit dependent cost codes.
+- Non-cash/deferred tax lines can set `affectsLandedCost: false`.
+- Türkiye modes:
+  - `NORMAL_PURCHASE`
+  - `EXPORT_REGISTERED`
+  - `IMPORT_VAT`
+- API: `/api/tax?country=TR&mode=IMPORT_VAT`
+- Optional verified product rate: `&rate=10`
+- If a verified rate is not supplied, the Türkiye adapter uses the general 20% VAT rate only as a marked fallback: `GENERAL_RATE_FALLBACK`, `requiresRateVerification=true`.
+- Export-registered VAT is calculated for invoice/audit visibility but excluded from cash landed cost when the statutory conditions are met.
+- Import VAT base includes customs value and resolved import taxes/charges represented by the configured base codes.

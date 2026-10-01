@@ -87,9 +87,10 @@ export function calculateLandedCost(input) {
   };
 
   const rawCosts = [...(input.costs ?? [])];
+  const taxLines = [...(input.taxes ?? [])];
 
   const tariffDecision = input.tariff?.normalized?.appliedRateDecision;
-  const hasDutyLine = rawCosts.some(c => c.code === 'DUTY');
+  const hasDutyLine = rawCosts.some(c => c.code === 'DUTY') || taxLines.some(c => c.code === 'DUTY');
   if (!hasDutyLine && Number.isFinite(Number(tariffDecision?.rate))) {
     rawCosts.push({
       code: 'DUTY',
@@ -111,6 +112,8 @@ export function calculateLandedCost(input) {
     });
   }
 
+  rawCosts.push(...taxLines);
+
   const resolved = new Map([[goodsCost.code, goodsCost]]);
   const costs = [goodsCost];
 
@@ -121,7 +124,7 @@ export function calculateLandedCost(input) {
       amount = goodsTotal * (cost.rate / 100);
     }
 
-    if (cost.calc === 'pct_customs_base') {
+    if (cost.calc === 'pct_customs_base' || cost.calc === 'pct_codes') {
       const baseCodes = cost.baseCodes ?? ['GOODS', 'FREIGHT_INTL', 'INSURANCE'];
       const base = baseCodes.reduce((sum, code) => {
         const item = resolved.get(code);
@@ -136,10 +139,15 @@ export function calculateLandedCost(input) {
     resolved.set(resolvedCost.code, resolvedCost);
   }
 
-  const total = costs.reduce((s, c) => s + c.amount, 0);
-  const low = costs.reduce((s, c) => s + costRange(c).low, 0);
-  const high = costs.reduce((s, c) => s + costRange(c).high, 0);
-  const weightedConfidence = costs.reduce((s, c) => s + c.amount * (SOURCE_WEIGHTS[c.sourceType] ?? 0.5), 0) / total;
+  const landedCosts = costs.filter(c => c.affectsLandedCost !== false);
+  const informationalCosts = costs.filter(c => c.affectsLandedCost === false);
+
+  const total = landedCosts.reduce((s, c) => s + c.amount, 0);
+  const low = landedCosts.reduce((s, c) => s + costRange(c).low, 0);
+  const high = landedCosts.reduce((s, c) => s + costRange(c).high, 0);
+  const weightedConfidence = total
+    ? landedCosts.reduce((s, c) => s + c.amount * (SOURCE_WEIGHTS[c.sourceType] ?? 0.5), 0) / total
+    : 0;
 
   return {
     currency: input.currency ?? 'USD',
@@ -150,6 +158,15 @@ export function calculateLandedCost(input) {
     perMt: qty.kg ? total / (qty.kg / 1000) : null,
     perLitre: qty.litres ? total / qty.litres : null,
     quantity: qty,
-    costs: costs.map(c => ({ ...c, ...costRange(c), confidenceWeight: SOURCE_WEIGHTS[c.sourceType] ?? 0.5 }))
+    costs: costs.map(c => ({
+      ...c,
+      ...costRange(c),
+      confidenceWeight: SOURCE_WEIGHTS[c.sourceType] ?? 0.5
+    })),
+    informationalCosts: informationalCosts.map(c => ({
+      ...c,
+      ...costRange(c),
+      confidenceWeight: SOURCE_WEIGHTS[c.sourceType] ?? 0.5
+    }))
   };
 }

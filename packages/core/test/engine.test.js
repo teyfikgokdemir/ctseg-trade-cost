@@ -72,3 +72,53 @@ test('does not duplicate an explicitly supplied duty line', () => {
   assert.equal(r.costs.filter(x => x.code === 'DUTY').length, 1);
   assert.equal(r.costs.find(x => x.code === 'DUTY').amount, 50);
 });
+
+
+test('keeps export-registered VAT informational and out of landed cost', async () => {
+  const { createTrVatLine, TrVatMode } = await import("../../rules/src/tr.js");
+  const tax = createTrVatLine({ mode: TrVatMode.EXPORT_REGISTERED, verifiedRate: 20 });
+
+  const r = calculateLandedCost({
+    product: { quantity: 1, unit: 'mt' },
+    purchase: { price: 1000, priceUnit: 'usd/mt', sourceType: SourceType.QUOTE },
+    taxes: [tax]
+  });
+
+  assert.equal(r.total, 1000);
+  assert.equal(r.informationalCosts.length, 1);
+  assert.equal(r.informationalCosts[0].code, 'TR_EXPORT_REGISTERED_VAT');
+  assert.equal(r.informationalCosts[0].amount, 200);
+  assert.equal(r.informationalCosts[0].affectsLandedCost, false);
+});
+
+test('calculates Türkiye import VAT on customs value plus duty', async () => {
+  const { createTrVatLine, TrVatMode } = await import("../../rules/src/tr.js");
+  const tax = createTrVatLine({ mode: TrVatMode.IMPORT_VAT, verifiedRate: 20 });
+
+  const r = calculateLandedCost({
+    product: { quantity: 1, unit: 'mt' },
+    purchase: { price: 1000, priceUnit: 'usd/mt', sourceType: SourceType.QUOTE },
+    costs: [
+      { code: 'FREIGHT_INTL', label: 'Freight', amount: 100, sourceType: SourceType.QUOTE },
+      { code: 'INSURANCE', label: 'Insurance', amount: 10, sourceType: SourceType.QUOTE }
+    ],
+    tariff: {
+      sourceName: 'World Trade Organization',
+      classification: { hs: '292250' },
+      route: { reporter: '792', partner: '156' },
+      normalized: {
+        resolvedYear: 2023,
+        confidence: 'MEDIUM',
+        appliedRateDecision: { rate: 6.5, basis: 'MFN' }
+      }
+    },
+    taxes: [tax]
+  });
+
+  const duty = r.costs.find(x => x.code === 'DUTY');
+  const vat = r.costs.find(x => x.code === 'TR_IMPORT_VAT');
+
+  assert.equal(duty.amount, 72.15);
+  assert.ok(Math.abs(vat.amount - 236.43) < 0.000001);
+  assert.ok(Math.abs(r.total - 1418.58) < 0.000001);
+});
