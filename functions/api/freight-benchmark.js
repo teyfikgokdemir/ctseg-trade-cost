@@ -104,11 +104,24 @@ export async function onRequestPost({ request, env }) {
 
     const result = buildFreightBenchmark(body || {});
 
+    let historyPersistence = {
+      attempted: false,
+      persisted: false,
+      reason: usedHistoricalFallback ? "HISTORICAL_FALLBACK_NOT_REPERSISTED" : null,
+      error: null
+    };
+
     if (!usedHistoricalFallback && result.status === "BENCHMARK_READY") {
+      historyPersistence.attempted = true;
       try {
-        await writeBenchmarkHistory(env, body, result);
-      } catch {
-        // Persistence must not break benchmark calculation.
+        historyPersistence.persisted = await writeBenchmarkHistory(env, body, result);
+        if (!historyPersistence.persisted) {
+          historyPersistence.reason = env?.DB
+            ? "MISSING_WORKSPACE_OR_ROUTE_METADATA"
+            : "DB_NOT_CONFIGURED";
+        }
+      } catch (error) {
+        historyPersistence.error = error instanceof Error ? error.message : String(error);
       }
     }
 
@@ -117,6 +130,7 @@ export async function onRequestPost({ request, env }) {
       sourceType: "COMPOSITE",
       generatedAt: new Date().toISOString(),
       historicalFallback: usedHistoricalFallback,
+      historyPersistence,
       result
     }, {
       headers: { "Cache-Control": "no-store" }

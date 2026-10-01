@@ -734,13 +734,22 @@ async function loadFreightBenchmark(){
       ? {HIGH:'High',MEDIUM:'Medium',LOW:'Low'}[r.confidence]
       : {HIGH:'Yüksek',MEDIUM:'Orta',LOW:'Düşük'}[r.confidence])+' · '+r.confidencePct+'%';
     sourcesEl.textContent=(r.sourceMix||[]).map(x=>freightSourceLabel(x.sourceType)+' × '+x.count).join(' + ')||'—';
+    const historyStatus=data.historyPersistence;
     noteEl.textContent=data.historicalFallback
       ? (currentLanguage==='en'
         ? 'No direct quote was available; a recent D1 historical benchmark was used as a low-confidence fallback.'
         : 'Doğrudan teklif bulunmadığı için yakın tarihli D1 geçmiş benchmark düşük güvenli fallback olarak kullanıldı.')
-      : (currentLanguage==='en'
-        ? `Benchmark uses ${r.sampleCount} evidence item(s). Route/toll extras and the commercial buffer are applied separately.`
-        : `Benchmark ${r.sampleCount} veri noktasına dayanıyor. Rota/toll ekleri ve ticari koruma payı ayrı uygulanıyor.`);
+      : historyStatus?.attempted && historyStatus?.persisted
+        ? (currentLanguage==='en'
+          ? `Benchmark uses ${r.sampleCount} evidence item(s) and was saved to D1 history.`
+          : `Benchmark ${r.sampleCount} veri noktasına dayanıyor ve D1 geçmişine kaydedildi.`)
+        : historyStatus?.attempted && !historyStatus?.persisted
+          ? (currentLanguage==='en'
+            ? `Benchmark calculated, but D1 history write failed: ${historyStatus.error||historyStatus.reason||'unknown'}`
+            : `Benchmark hesaplandı ancak D1 geçmiş kaydı başarısız: ${historyStatus.error||historyStatus.reason||'bilinmiyor'}`)
+          : (currentLanguage==='en'
+            ? `Benchmark uses ${r.sampleCount} evidence item(s). Route/toll extras and the commercial buffer are applied separately.`
+            : `Benchmark ${r.sampleCount} veri noktasına dayanıyor. Rota/toll ekleri ve ticari koruma payı ayrı uygulanıyor.`);
     return r;
   }catch{
     if(seq!==freightBenchmarkSeq) return null;
