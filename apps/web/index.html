@@ -44,7 +44,7 @@
 
     <section class="panel">
       <div class="panel-head">
-        <h2>Maliyet kalemleri</h2>
+        <div><h2>Maliyet kalemleri</h2><p class="section-help">Aşağıdaki tüm tutarlar USD cinsindedir.</p></div>
         <button id="addCost">+ Maliyet ekle</button>
       </div>
       <div class="cost-head">
@@ -56,10 +56,17 @@
     <button id="calculate" class="primary">Toplam teslim maliyetini hesapla</button>
 
     <section class="results" id="results" hidden>
-      <div class="metric strong"><span>Tahmini teslim maliyeti</span><b id="perLitre">—</b><small>USD / litre</small></div>
-      <div class="metric"><span>Toplam maliyet</span><b id="total">—</b><small>USD</small></div>
-      <div class="metric"><span>Ton başına</span><b id="perMt">—</b><small>USD / MT</small></div>
+      <div class="metric strong"><span>Nihai teslim maliyeti</span><b id="perLitre">—</b><small>USD / litre</small></div>
+      <div class="metric"><span>Ürün EXW maliyeti</span><b id="goodsTotal">—</b><small>USD · fabrika teslim ürün bedeli</small></div>
+      <div class="metric"><span>EXW sonrası ek maliyet</span><b id="extraTotal">—</b><small>USD · nakliye, gümrük, sigorta vb.</small></div>
+      <div class="metric"><span>Nihai toplam maliyet</span><b id="total">—</b><small>USD · ürün + tüm ek maliyetler</small></div>
+
+      <div class="metric"><span>Ürün EXW fiyatı</span><b id="goodsPerLitre">—</b><small>USD / litre</small></div>
+      <div class="metric"><span>Ek maliyet / litre</span><b id="extraPerLitre">—</b><small>USD / litre</small></div>
+      <div class="metric"><span>Ton başına nihai maliyet</span><b id="perMt">—</b><small>USD / MT</small></div>
       <div class="metric"><span>Veri güveni</span><b id="confidence">—</b><small>hesap güven seviyesi</small></div>
+
+      <div class="breakdown" id="breakdownText"></div>
       <div class="range"><span>Beklenen maliyet aralığı</span><strong id="range">—</strong></div>
       <div class="route" id="routeText"></div>
     </section>
