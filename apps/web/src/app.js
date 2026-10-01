@@ -381,7 +381,7 @@ function customsBase(){
 }
 function importTaxBase(){
   const duty=findDutyRow();
-  const dutyAmount=duty?customsBase()*(Math.max(0,Number(duty.querySelector('.rate').value)||0)/100):0;
+  const dutyAmount=duty?calculateRow(duty):0;
   return customsBase()+dutyAmount;
 }
 function findImportTaxRow(){
