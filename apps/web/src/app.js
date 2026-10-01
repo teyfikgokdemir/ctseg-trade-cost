@@ -307,6 +307,20 @@ const defaults=[
 ];
 const rows=document.querySelector('#costRows');
 const quoteStoreKey='ctseg_trade_cost_quotes_v1';
+const workspaceStoreKey='ctseg_trade_cost_workspace_v1';
+
+function getWorkspaceId(){
+  let id=localStorage.getItem(workspaceStoreKey);
+  if(!id){
+    id='ws_'+crypto.randomUUID().replace(/-/g,'');
+    localStorage.setItem(workspaceStoreKey,id);
+  }
+  return id;
+}
+
+const workspaceId=getWorkspaceId();
+let quoteCache=[];
+let d1PersistenceAvailable=null;
 
 function money(n,d=2){return new Intl.NumberFormat(currentLanguage==='en'?'en-US':'tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(Number(n)||0)}
 function positive(selector){const v=Number(document.querySelector(selector).value);return Number.isFinite(v)&&v>0?v:null}
@@ -539,9 +553,84 @@ async function loadTariff(){
 loadCountries().then(loadTariff);
 
 function loadQuotes(){
-  try{return JSON.parse(localStorage.getItem(quoteStoreKey)||'[]')}catch{return []}
+  if(quoteCache.length) return quoteCache;
+  try{
+    quoteCache=JSON.parse(localStorage.getItem(quoteStoreKey)||'[]');
+    return quoteCache;
+  }catch{
+    quoteCache=[];
+    return quoteCache;
+  }
 }
-function saveQuotes(quotes){localStorage.setItem(quoteStoreKey,JSON.stringify(quotes))}
+
+function saveQuotes(quotes){
+  quoteCache=[...quotes];
+  localStorage.setItem(quoteStoreKey,JSON.stringify(quoteCache));
+}
+
+async function hydrateQuotesFromD1(){
+  try{
+    const params=new URLSearchParams({workspaceId});
+    const res=await fetch('/api/quotes?'+params.toString(),{cache:'no-store'});
+    if(res.status===503){d1PersistenceAvailable=false;return false}
+    if(!res.ok) throw new Error();
+    const data=await res.json();
+    d1PersistenceAvailable=true;
+    quoteCache=Array.isArray(data.quotes)?data.quotes:[];
+    localStorage.setItem(quoteStoreKey,JSON.stringify(quoteCache));
+    renderQuoteSummary();
+    return true;
+  }catch{
+    d1PersistenceAvailable=false;
+    return false;
+  }
+}
+
+async function persistQuoteToD1(quote){
+  if(d1PersistenceAvailable===false) return false;
+  try{
+    const res=await fetch('/api/quotes',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        workspaceId,provider:quote.provider,rate:quote.rate,date:quote.date,
+        validUntil:quote.validUntil,origin:quote.origin,destination:quote.destination,
+        equipment:quote.containerType,currency:'USD',sourceType:'QUOTE',
+        originCountry:document.querySelector('#originCountry')?.value||null,
+        destinationCountry:document.querySelector('#importCountry')?.value||null,
+        commodity:document.querySelector('#productName')?.value||null
+      })
+    });
+    if(res.status===503){d1PersistenceAvailable=false;return false}
+    if(!res.ok) throw new Error();
+    const data=await res.json();
+    d1PersistenceAvailable=true;
+    if(data.quote?.id) quote.id=data.quote.id;
+    return true;
+  }catch{return false}
+}
+
+async function deleteQuoteFromD1(id){
+  if(d1PersistenceAvailable!==true) return false;
+  try{
+    const params=new URLSearchParams({workspaceId,id});
+    const res=await fetch('/api/quotes?'+params.toString(),{method:'DELETE'});
+    return res.ok;
+  }catch{return false}
+}
+
+async function persistCalculationSnapshot(input,result){
+  if(d1PersistenceAvailable===false) return false;
+  try{
+    const res=await fetch('/api/calculations',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({workspaceId,input,result})
+    });
+    if(res.status===503){d1PersistenceAvailable=false;return false}
+    if(!res.ok) throw new Error();
+    d1PersistenceAvailable=true;
+    return true;
+  }catch{return false}
+}
 function currentQuoteKey(){
   return {
     origin:normalizeText(document.querySelector('#origin').value),
@@ -680,9 +769,11 @@ function renderQuoteSummary(){
       <b>$${money(q.rate,0)}</b>
       <button data-id="${q.id}" type="button">Sil</button>
     </div>`).join('') || (currentLanguage==='en'?'<p class="empty">No valid saved quote exists for this route and container type.</p>':'<p class="empty">Bu rota ve konteyner tipi için kayıtlı geçerli teklif yok.</p>');
-  list.querySelectorAll('button[data-id]').forEach(btn=>btn.addEventListener('click',()=>{
-    saveQuotes(loadQuotes().filter(q=>q.id!==btn.dataset.id));
+  list.querySelectorAll('button[data-id]').forEach(btn=>btn.addEventListener('click',async()=>{
+    const id=btn.dataset.id;
+    saveQuotes(loadQuotes().filter(q=>q.id!==id));
     renderQuoteSummary();
+    await deleteQuoteFromD1(id);
   }));
   loadFreightBenchmark();
 }
@@ -707,6 +798,9 @@ document.querySelector('#saveQuote').addEventListener('click',()=>{
   saveQuotes(quotes);
   document.querySelector('#quoteRate').value='';
   renderQuoteSummary();
+  persistQuoteToD1(quotes[quotes.length-1]).then(saved=>{
+    if(saved){saveQuotes(quotes);renderQuoteSummary()}
+  });
 });
 document.querySelector('#applyQuoteAverage').addEventListener('click',()=>{
   const matches=matchingQuotes();
@@ -719,6 +813,7 @@ document.querySelector('#applyQuoteAverage').addEventListener('click',()=>{
   refreshCalculatedAmounts();
 });
 renderQuoteSummary();
+hydrateQuotesFromD1();
 
 document.querySelector('#calculate').addEventListener('click',()=>{
   const s=shipment();
@@ -778,6 +873,16 @@ document.querySelector('#calculate').addEventListener('click',()=>{
   document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
   document.querySelector('#routeText').textContent=
     `${document.querySelector('#productName').value} · ${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${s.count} × ${document.querySelector('#containerType').value}`;
+  persistCalculationSnapshot({
+    product:{name:document.querySelector('#productName').value,hsCode:document.querySelector('#hsCode').value},
+    route:{origin:document.querySelector('#origin').value,destination:document.querySelector('#destination').value,originCountry:document.querySelector('#originCountry').value,importCountry:document.querySelector('#importCountry').value},
+    shipment:{containerType:document.querySelector('#containerType').value,containerCount:s.count,netMt:s.mt},
+    purchase:{price:Number(document.querySelector('#price').value)||0,priceUnit:document.querySelector('#priceUnit').value}
+  },{
+    currency:'USD',goodsTotal:goods,extraTotal:extra,total,range:{low,high},confidencePct:confidence,
+    estimateSharePct:estimateShare,commercialBufferPct:bufferPct,safeTotal
+  });
+
   document.querySelector('#results').hidden=false;
 });
 
