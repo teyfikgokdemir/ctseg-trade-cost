@@ -516,6 +516,7 @@ async function loadCountries(){
   const originSelect=document.querySelector('#originCountry');
   const exportSelect=document.querySelector('#exportCountry');
   const importSelect=document.querySelector('#importCountry');
+  const taxRuleSelect=document.querySelector('#taxRuleCountrySelect');
 
   try{
     const res=await fetch('/api/countries',{cache:'no-store'});
@@ -548,10 +549,12 @@ async function loadCountries(){
     fill(originSelect);
     fill(exportSelect);
     fill(importSelect);
+    fill(taxRuleSelect);
   }catch{
     originSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
     exportSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
     importSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
+    if(taxRuleSelect) taxRuleSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
   }
 }
 
@@ -575,15 +578,16 @@ function parseTransitCountries(){
 }
 
 async function loadCountryTaxProfile(){
-  const countryEl=document.querySelector('#taxRuleCountry');
+  const countrySelect=document.querySelector('#taxRuleCountrySelect');
   const statusEl=document.querySelector('#taxRuleStatus');
   const modelEl=document.querySelector('#taxRuleModel');
   const ratePolicyEl=document.querySelector('#taxRuleRatePolicy');
   const noteEl=document.querySelector('#taxRuleNote');
-  if(!countryEl||!statusEl||!modelEl||!ratePolicyEl||!noteEl) return null;
+  if(!countrySelect||!statusEl||!modelEl||!ratePolicyEl||!noteEl) return null;
 
-  const iso2=selectedCountryIso2('#importCountry');
-  countryEl.textContent=selectedCountryName('#importCountry');
+  const importValue=document.querySelector('#importCountry')?.value||'';
+  if(countrySelect.value!==importValue) countrySelect.value=importValue;
+  const iso2=selectedCountryIso2('#taxRuleCountrySelect');
 
   if(!iso2){
     statusEl.textContent=msg('taxRuleMissing');
@@ -1605,7 +1609,19 @@ document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
 document.querySelector('#refreshTaxRule').addEventListener('click',loadCountryTaxProfile);
 document.querySelector('#originCountry').addEventListener('change',loadTariff);
 document.querySelector('#exportCountry').addEventListener('change',()=>{});
-document.querySelector('#importCountry').addEventListener('change',()=>{loadTariff();loadCountryTaxProfile()});
+document.querySelector('#importCountry').addEventListener('change',()=>{
+  const taxSelect=document.querySelector('#taxRuleCountrySelect');
+  if(taxSelect) taxSelect.value=document.querySelector('#importCountry').value;
+  loadTariff();
+  loadCountryTaxProfile();
+});
+document.querySelector('#taxRuleCountrySelect').addEventListener('change',()=>{
+  const importSelect=document.querySelector('#importCountry');
+  importSelect.value=document.querySelector('#taxRuleCountrySelect').value;
+  loadTariff();
+  loadCountryTaxProfile();
+  renderQuoteSummary();
+});
 
 document.querySelector('#refreshFx').addEventListener('click',loadFx);
 ['fxBase','fxQuote'].forEach(id=>document.querySelector('#'+id).addEventListener('change',loadFx));
