@@ -30,6 +30,14 @@ const STATIC_TRANSLATIONS={
   'Durum':'Status',
   'Bekliyor':'Waiting',
   'HS kodu ve ülkeler seçildiğinde otomatik sorgulanır.':'Queried automatically when the HS code and countries are selected.',
+  'Ülke vergi kuralı':'Country tax rule',
+  'Hedef ülke için otomatik vergi modeli mevcutsa gösterilir. Oran doğrulanmadan sistem vergi uydurmaz.':'Shows whether an automated tax model exists for the destination country. The system never invents a tax rate before verification.',
+  'Vergi kuralını yenile':'Refresh tax rule',
+  'Ülke':'Country',
+  'Kural paketi':'Rule pack',
+  'Vergi modeli':'Tax model',
+  'Oran politikası':'Rate policy',
+  'İthalat ülkesi seçildiğinde kontrol edilir.':'Checked when the import country is selected.',
   'Rota ve taşıma doğrulama':'Route and transport verification',
   'Gerçek rota sağlayıcısı bağlandığında mesafe, sürüş süresi ve mevcut yol ücretleri burada doğrulanır.':'Distance, driving time and available tolls are verified here when a live route provider is connected.',
   'Rotayı hesapla':'Calculate route',
@@ -147,7 +155,14 @@ const UI_MESSAGES={
     tariffNoResolvedNote:'WTO bu HS6/ülke kombinasyonu için kullanılabilir bir MFN observation döndürmedi. Ulusal tarife satırı manuel doğrulanmalıdır.',
     tariffMfn:'WTO MFN oranı otomatik uygulandı. Nihai beyan öncesi ulusal tarife satırı doğrulanmalıdır.',
     countriesLoading:'Ülkeler yükleniyor…',
-    countrySelect:'Ülke seçin'
+    countrySelect:'Ülke seçin',
+    taxRuleConfigured:'Model hazır',
+    taxRuleManual:'Manuel doğrulama',
+    taxRuleLoading:'Kontrol ediliyor…',
+    taxRuleMissing:'Ülke seçin',
+    taxRuleVerifiedOnly:'Doğrulanmış oran gerekli',
+    taxRuleProductVerify:'Ürün oranı doğrulanmalı',
+    taxRuleUnavailable:'Kural profili alınamadı'
   },
   en:{
     hsGlobal:'HS 2022 global classification',
@@ -172,7 +187,14 @@ const UI_MESSAGES={
     tariffNoResolvedNote:'WTO returned no usable MFN observation for this HS6/country combination. Verify the national tariff line manually.',
     tariffMfn:'The WTO MFN rate was applied automatically. Verify the national tariff line before the final declaration.',
     countriesLoading:'Loading countries…',
-    countrySelect:'Select country'
+    countrySelect:'Select country',
+    taxRuleConfigured:'Model ready',
+    taxRuleManual:'Manual verification',
+    taxRuleLoading:'Checking…',
+    taxRuleMissing:'Select country',
+    taxRuleVerifiedOnly:'Verified rate required',
+    taxRuleProductVerify:'Product rate must be verified',
+    taxRuleUnavailable:'Rule profile unavailable'
   }
 };
 
@@ -293,6 +315,7 @@ function applyLanguage(lang){
   loadFx();
   const hs=document.querySelector('#hsCode')?.value.trim();
   if(!hs) setHsStatus(msg('hsGlobal'));
+  loadCountryTaxProfile();
 }
 
 const weights={LIVE:1,OFFICIAL:.98,QUOTE:.92,MARKET_AVG:.82,MANUAL:.75,ESTIMATE:.60};
@@ -422,6 +445,7 @@ syncShipment();
 
 let countryReference=[];
 let tariffRequestSeq=0;
+let taxRuleRequestSeq=0;
 
 async function loadCountries(){
   const originSelect=document.querySelector('#originCountry');
@@ -466,6 +490,70 @@ async function loadCountries(){
 function selectedCountryName(selector){
   const el=document.querySelector(selector);
   return el.selectedOptions[0]?.textContent?.replace(/\s*\([A-Z]{2}\)\s*$/,'')||'—';
+}
+
+function selectedCountryIso2(selector){
+  const code=document.querySelector(selector)?.value;
+  return countryReference.find(x=>x.code===code)?.iso2||null;
+}
+
+async function loadCountryTaxProfile(){
+  const countryEl=document.querySelector('#taxRuleCountry');
+  const statusEl=document.querySelector('#taxRuleStatus');
+  const modelEl=document.querySelector('#taxRuleModel');
+  const ratePolicyEl=document.querySelector('#taxRuleRatePolicy');
+  const noteEl=document.querySelector('#taxRuleNote');
+  if(!countryEl||!statusEl||!modelEl||!ratePolicyEl||!noteEl) return null;
+
+  const iso2=selectedCountryIso2('#importCountry');
+  countryEl.textContent=selectedCountryName('#importCountry');
+
+  if(!iso2){
+    statusEl.textContent=msg('taxRuleMissing');
+    modelEl.textContent='—';
+    ratePolicyEl.textContent='—';
+    noteEl.textContent=currentLanguage==='en'
+      ? 'Select an import country to check tax-rule support.'
+      : 'Vergi kuralı desteğini kontrol etmek için ithalat ülkesi seçin.';
+    return null;
+  }
+
+  const seq=++taxRuleRequestSeq;
+  statusEl.textContent=msg('taxRuleLoading');
+  modelEl.textContent='—';
+  ratePolicyEl.textContent='—';
+
+  try{
+    const res=await fetch('/api/tax?country='+encodeURIComponent(iso2),{cache:'no-store'});
+    const data=await res.json();
+    if(seq!==taxRuleRequestSeq) return null;
+    if(!res.ok) throw new Error(data?.message||data?.error||'Tax rule profile failed');
+
+    const profile=data.profile||{};
+    const configured=profile.status==='CONFIGURED';
+    statusEl.textContent=configured?msg('taxRuleConfigured'):msg('taxRuleManual');
+    modelEl.textContent=profile.taxModel||'—';
+    ratePolicyEl.textContent=profile.ratePolicy==='PRODUCT_RATE_MUST_BE_VERIFIED'
+      ? msg('taxRuleProductVerify')
+      : msg('taxRuleVerifiedOnly');
+    noteEl.textContent=configured
+      ? (currentLanguage==='en'
+        ? 'A country calculation model exists, but the product-specific rate and transaction treatment still require verification.'
+        : 'Ülke hesaplama modeli mevcut; ancak ürün bazlı oran ve işlem türü yine doğrulanmalıdır.')
+      : (currentLanguage==='en'
+        ? 'No automated country-specific rule pack is configured. Enter only a verified destination-country tax rate manually.'
+        : 'Bu ülke için otomatik kural paketi henüz yok. Yalnızca doğrulanmış hedef ülke vergi oranını manuel girin.');
+    return profile;
+  }catch{
+    if(seq!==taxRuleRequestSeq) return null;
+    statusEl.textContent=msg('taxRuleUnavailable');
+    modelEl.textContent='—';
+    ratePolicyEl.textContent='—';
+    noteEl.textContent=currentLanguage==='en'
+      ? 'Country tax-rule profile could not be loaded. Keep import tax in manual verification mode.'
+      : 'Ülke vergi kuralı profili alınamadı. İthalat vergisini manuel doğrulama modunda tutun.';
+    return null;
+  }
 }
 
 function findDutyRow(){
@@ -573,7 +661,7 @@ async function loadTariff(){
   }
 }
 
-loadCountries().then(loadTariff);
+loadCountries().then(()=>{loadTariff();loadCountryTaxProfile()});
 
 function loadQuotes(){
   if(quoteCache.length) return quoteCache;
@@ -1355,7 +1443,9 @@ updateCostLanguage();
 updateCurrencyLanguage();
 
 document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
-['originCountry','importCountry'].forEach(id=>document.querySelector('#'+id).addEventListener('change',loadTariff));
+document.querySelector('#refreshTaxRule').addEventListener('click',loadCountryTaxProfile);
+document.querySelector('#originCountry').addEventListener('change',loadTariff);
+document.querySelector('#importCountry').addEventListener('change',()=>{loadTariff();loadCountryTaxProfile()});
 
 document.querySelector('#refreshFx').addEventListener('click',loadFx);
 ['fxBase','fxQuote'].forEach(id=>document.querySelector('#'+id).addEventListener('change',loadFx));
