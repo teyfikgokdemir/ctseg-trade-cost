@@ -1717,88 +1717,68 @@ function restoreBackhaulAppliedFreight(){
 }
 
 function resetBackhaulDisplay(message=null){
-  document.querySelector('#backhaulExpectedRevenue').textContent='—';
-  document.querySelector('#backhaulBenefit').textContent='—';
-  document.querySelector('#backhaulEffectiveFreight').textContent='—';
-  document.querySelector('#backhaulConfidence').textContent=currentLanguage==='en'?'Waiting':'Bekliyor';
+  document.querySelector('#backhaulExpectedRevenue').textContent='$'+money(expectedRevenue,0);
+  document.querySelector('#backhaulBenefit').textContent='$'+money(expectedBenefit,0);
+  document.querySelector('#backhaulEffectiveFreight').textContent='$'+money(effective,0);
+  document.querySelector('#backhaulConfidence').textContent=currentLanguage==='en'
+    ? ({HIGH:'High',MEDIUM:'Medium',LOW:'Low'}[confidence]||confidence)
+    : ({HIGH:'Yüksek',MEDIUM:'Orta',LOW:'Düşük'}[confidence]||confidence);
+
   const note=document.querySelector('#backhaulNote');
-  if(note) note.textContent=message||(currentLanguage==='en'
-    ? 'First establish an outbound freight value from a benchmark or forwarder quote.'
-    : 'Önce navlun benchmark veya forwarder teklifinden bir çıkış navlun değeri oluşturun.');
-}
-
-function clearBackhaulMetadataPreserveFreight(){
-  const freight=findFreightRow();
-  if(!freight) return;
-  delete freight.dataset.backhaulOriginalRate;
-  delete freight.dataset.backhaulBenefit;
-  delete freight.dataset.backhaulKey;
-  freight.classList.remove('backhaul-applied');
-}
-
-function invalidateBackhaul(reason='context-changed',preserveCurrentFreight=false){
-  if(currentBackhaulResult || findFreightRow()?.dataset.backhaulOriginalRate){
-    if(preserveCurrentFreight) clearBackhaulMetadataPreserveFreight();
-    else restoreBackhaulAppliedFreight();
+  if(note){
+    note.textContent=evidence==='CONFIRMED_LOAD'
+      ? (currentLanguage==='en'
+        ? 'Confirmed return-load economics calculated. Apply only if this benefit is actually reflected in your carrier/forwarder commercial terms.'
+        : 'Doğrulanmış dönüş yükü ekonomisi hesaplandı. Bu faydayı yalnız taşıyıcı/forwarder ticari şartlarına gerçekten yansıyorsa uygulayın.')
+      : (currentLanguage==='en'
+        ? 'This is an informational backhaul signal. It is not eligible for automatic landed-cost reduction.'
+        : 'Bu bilgi amaçlı bir backhaul sinyalidir. Landed-cost düşüşüne otomatik uygulanamaz.');
   }
-  currentBackhaulResult=null;
-  resetBackhaulDisplay(currentLanguage==='en'
-    ? 'Route, equipment or freight changed. Recalculate the backhaul effect before applying it.'
-    : 'Rota, ekipman veya navlun değişti. Backhaul faydasını uygulamadan önce yeniden hesaplayın.');
+  return currentBackhaulResult;
 }
 
-function outboundFreightPerUnit(){
-  const freight=findFreightRow();
-  if(!freight) return null;
-  const method=freight.querySelector('.method').value;
-  if(method!=='PER_CONTAINER') return null;
-  const original=Number(freight.dataset.backhaulOriginalRate||freight.querySelector('.rate').value);
-  return Number.isFinite(original)&&original>0?original:null;
-}
-
-function calculateBackhaulUi(){
-  const outbound=outboundFreightPerUnit();
-  if(!outbound){
+function applyBackhaulBenefit(){
+  const r=currentBackhaulResult||calculateBackhaulUi();
+  if(!r) return;
+  if(r.routeKey!==backhaulRouteKey()){
+    invalidateBackhaul('stale');
     alert(currentLanguage==='en'
-      ? 'A per-equipment international freight value is required first.'
-      : 'Önce ekipman başına uluslararası navlun değeri gerekli.');
-    return null;
+      ? 'Backhaul calculation is stale. Recalculate it for the current route and freight.'
+      : 'Backhaul hesabı güncel değil. Mevcut rota ve navlun için yeniden hesaplayın.');
+    return;
+  }
+  if(r.evidence!=='CONFIRMED_LOAD'){
+    alert(currentLanguage==='en'
+      ? 'Only a confirmed return load can be applied to landed cost.'
+      : 'Landed-cost hesabına yalnız doğrulanmış dönüş yükü uygulanabilir.');
+    return;
+  }
+  if(r.probabilityPct!==100){
+    alert(currentLanguage==='en'
+      ? 'Confirmed backhaul must have 100% availability before it can be applied.'
+      : 'Doğrulanmış backhaul landed-cost’a uygulanmadan önce bulunma olasılığı %100 olmalıdır.');
+    return;
   }
 
-  const evidence=document.querySelector('#backhaulEvidence').value;
-  const revenue=Math.max(0,Number(document.querySelector('#backhaulRevenue').value)||0);
-  const extra=Math.max(0,Number(document.querySelector('#backhaulExtraCost').value)||0);
-  const probability=Math.min(100,Math.max(0,Number(document.querySelector('#backhaulProbability').value)||0));
-  const emptyKm=Math.max(0,Number(document.querySelector('#backhaulEmptyKm').value)||0);
-  const detourKm=Math.max(0,Number(document.querySelector('#backhaulDetourKm').value)||0);
+  const freight=findFreightRow();
+  if(!freight || freight.querySelector('.method').value!=='PER_CONTAINER') return;
+  const original=Number(freight.dataset.backhaulOriginalRate||freight.querySelector('.rate').value)||0;
+  const benefit=Math.min(original,Math.max(0,r.expectedBenefit));
+  freight.dataset.backhaulOriginalRate=String(original);
+  freight.dataset.backhaulBenefit=String(benefit);
+  freight.dataset.backhaulKey=r.routeKey;
+  freight.querySelector('.rate').value=String(Math.max(0,original-benefit));
+  freight.querySelector('.source').value='QUOTE';
+  freight.classList.add('backhaul-applied');
+  refreshCalculatedAmounts();
 
-  const expectedRevenue=revenue*(probability/100);
-  const expectedBenefit=Math.max(0,expectedRevenue-extra);
-  const appliedCap=Math.min(outbound,expectedBenefit);
-  const effective=Math.max(0,outbound-appliedCap);
-  let confidence='LOW';
-  if(evidence==='CONFIRMED_LOAD'&&probability===100) confidence='HIGH';
-  else if(evidence==='MARKET_SIGNAL'||probability>=70) confidence='MEDIUM';
+  const note=document.querySelector('#backhaulNote');
+  if(note) note.textContent=currentLanguage==='en'
+    ? 'Verified backhaul credit applied: '+money(benefit,0)+' USD per equipment. Original freight is preserved for audit/reversal.'
+    : 'Doğrulanmış backhaul credit uygulandı: ekipman başına '+money(benefit,0)+' USD. Orijinal navlun audit/geri alma için saklanıyor.';
+}
 
-  currentBackhaulResult={
-    status:revenue>0?'BACKHAUL_AVAILABLE':'NO_BACKHAUL_EVIDENCE',
-    evidence,
-    outboundFreightCost:outbound,
-    returnLoadRevenue:revenue,
-    expectedRevenue,
-    returnLoadExtraCost:extra,
-    expectedBenefit,
-    appliedCap,
-    effectiveOutboundCost:effective,
-    reductionPct:outbound?appliedCap/outbound*100:0,
-    emptyReturnKm:emptyKm,
-    detourKm,
-    probabilityPct:probability,
-    confidence,
-    routeKey:backhaulRouteKey()
-  };
-
-  document.querySelector('#backhaulExpectedRevenue').textContent='
+function weightedQuoteAverage(quotes){
   if(!quotes.length) return null;
   const now=Date.now();
   let num=0,den=0;
