@@ -219,6 +219,8 @@ const COST_LABEL_TRANSLATIONS={
   'Varış / sınır masrafları':'Destination / border charges',
   'İthalat gümrük vergisi (doğrulanacak)':'Import duty (to be verified)',
   'İthalat gümrük vergisi':'Import duty',
+  'İthalat KDV / yerel vergi (doğrulanacak)':'Import VAT / local tax (to be verified)',
+  'İthalat KDV / yerel vergi':'Import VAT / local tax',
   'Gümrük müşavirliği':'Customs brokerage',
   'Varış iç nakliye':'Destination inland haulage'
 };
@@ -297,8 +299,8 @@ const weights={LIVE:1,OFFICIAL:.98,QUOTE:.92,MARKET_AVG:.82,MANUAL:.75,ESTIMATE:
 const spreads={LIVE:.02,OFFICIAL:.005,QUOTE:.04,MARKET_AVG:.10,MANUAL:.08,ESTIMATE:.18};
 const sourceLabelsTr={LIVE:'Canlı veri',OFFICIAL:'Resmî kaynak',QUOTE:'Güncel teklif',MARKET_AVG:'Piyasa ortalaması',MANUAL:'Manuel veri',ESTIMATE:'Tahmin'};
 const sourceLabelsEn={LIVE:'Live data',OFFICIAL:'Official source',QUOTE:'Current quote',MARKET_AVG:'Market average',MANUAL:'Manual data',ESTIMATE:'Estimate'};
-const methodLabelsTr={FIXED:'Sevkiyat başına',PER_CONTAINER:'Konteyner başına',PER_MT:'MT başına',PCT_GOODS:'Ürün bedelinin %',PCT_CUSTOMS:'Gümrük kıymetinin %'};
-const methodLabelsEn={FIXED:'Per shipment',PER_CONTAINER:'Per container',PER_MT:'Per MT',PCT_GOODS:'% of goods value',PCT_CUSTOMS:'% of customs value'};
+const methodLabelsTr={FIXED:'Sevkiyat başına',PER_CONTAINER:'Konteyner başına',PER_MT:'MT başına',PCT_GOODS:'Ürün bedelinin %',PCT_CUSTOMS:'Gümrük kıymetinin %',PCT_IMPORT_TAX:'Gümrük kıymeti + verginin %'};
+const methodLabelsEn={FIXED:'Per shipment',PER_CONTAINER:'Per container',PER_MT:'Per MT',PCT_GOODS:'% of goods value',PCT_CUSTOMS:'% of customs value',PCT_IMPORT_TAX:'% of customs value + duty'};
 const sourceLabels=currentLanguage==='en'?sourceLabelsEn:sourceLabelsTr;
 const methodLabels=currentLanguage==='en'?methodLabelsEn:methodLabelsTr;
 const defaults=[
@@ -307,7 +309,8 @@ const defaults=[
   ['Uluslararası navlun','PER_CONTAINER',5600,'MARKET_AVG'],
   ['Yük sigortası','PCT_GOODS',0.35,'QUOTE'],
   ['Varış / sınır masrafları','PER_CONTAINER',1200,'ESTIMATE'],
-  ['İthalat gümrük vergisi (doğrulanacak)','PCT_CUSTOMS',0,'ESTIMATE'],
+  ['İthalat gümrük vergisi (doğrulanacak)','PCT_CUSTOMS','','ESTIMATE'],
+  ['İthalat KDV / yerel vergi (doğrulanacak)','PCT_IMPORT_TAX','','ESTIMATE'],
   ['Gümrük müşavirliği','FIXED',1300,'MARKET_AVG'],
   ['Varış iç nakliye','PER_CONTAINER',1600,'ESTIMATE']
 ];
@@ -360,6 +363,10 @@ function calculateRow(row,{excludeCustoms=false}={}){
     if(excludeCustoms) return 0;
     return customsBase()*(rate/100);
   }
+  if(method==='PCT_IMPORT_TAX'){
+    if(excludeCustoms) return 0;
+    return importTaxBase()*(rate/100);
+  }
   return 0;
 }
 function customsBase(){
@@ -371,6 +378,15 @@ function customsBase(){
     .filter(r=>/sigorta|insurance/i.test(r.querySelector('.label').value))
     .reduce((sum,r)=>sum+calculateRow(r,{excludeCustoms:true}),0);
   return goodsTotal()+freight+insurance;
+}
+function importTaxBase(){
+  const duty=findDutyRow();
+  const dutyAmount=duty?customsBase()*(Math.max(0,Number(duty.querySelector('.rate').value)||0)/100):0;
+  return customsBase()+dutyAmount;
+}
+function findImportTaxRow(){
+  return [...document.querySelectorAll('.cost-row')]
+    .find(r=>/ithalat kdv|import vat|local tax|yerel vergi/i.test(r.querySelector('.label').value));
 }
 function addRow([label='',method='FIXED',rate=0,source='ESTIMATE']={}){
   const div=document.createElement('div');
@@ -1063,6 +1079,20 @@ document.querySelector('#calculate').addEventListener('click',()=>{
       dutyRow.querySelector('.rate').focus();
       return;
     }
+  }
+  const importTaxRow=findImportTaxRow();
+  if(importTaxRow && /doğrulanacak|to be verified/i.test(importTaxRow.querySelector('.label').value)){
+    const taxRateRaw=importTaxRow.querySelector('.rate').value.trim();
+    const taxSource=importTaxRow.querySelector('.source').value;
+    const manuallyVerified=taxRateRaw!=='' && taxSource==='MANUAL';
+    if(!manuallyVerified){
+      alert(currentLanguage==='en'
+        ? 'Import VAT/local tax is unresolved. Enter the verified destination-country rate manually and set the source to Manual data, or remove this row when the tax is not part of the landed-cost scenario.'
+        : 'İthalat KDV/yerel vergi doğrulanmadı. Hedef ülke için doğruladığınız oranı manuel girip kaynağı Manuel veri olarak seçin; bu vergi landed-cost senaryosuna dahil değilse satırı kaldırın.');
+      importTaxRow.querySelector('.rate').focus();
+      return;
+    }
+    importTaxRow.querySelector('.label').value=currentLanguage==='en'?'Import VAT / local tax':'İthalat KDV / yerel vergi';
   }
   const costs=costRows.map(row=>({amount:calculateRow(row),source:row.querySelector('.source').value}));
   const extra=costs.reduce((sum,c)=>sum+c.amount,0);
