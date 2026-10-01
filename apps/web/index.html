@@ -14,7 +14,7 @@
         <h1>Toplam Teslim Maliyeti</h1>
         <p class="sub">Konteyner, ürün, rota ve ülke bazında ithalat / ihracat maliyet motoru.</p>
       </div>
-      <span class="badge">MVP v0.3</span>
+      <span class="badge">MVP v0.4</span>
     </header>
 
     <section class="panel">
@@ -75,6 +75,34 @@
             <option value="USD_MT">USD / MT</option>
           </select>
         </label>
+      </div>
+    </section>
+
+
+    <section class="panel route-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Rota ve taşıma doğrulama</h2>
+          <p class="section-help">Kamyon rotası, mesafe ve mevcutsa yol ücretleri gerçek rota sağlayıcısından alınır.</p>
+        </div>
+        <button id="calculateRoute">Rotayı hesapla</button>
+      </div>
+      <div class="grid inputs">
+        <label>Araç brüt ağırlığı (kg)
+          <input id="grossWeightKg" type="number" value="40000" step="1000" />
+        </label>
+        <label>Araç yüksekliği (cm)
+          <input id="heightCm" type="number" value="400" step="10" />
+        </label>
+        <label>Ticari koruma payı (%)
+          <input id="commercialBuffer" type="number" value="5" min="0" max="50" step="0.5" />
+        </label>
+      </div>
+      <div class="route-stats">
+        <div><span>Mesafe</span><strong id="routeDistance">—</strong></div>
+        <div><span>Sürüş süresi</span><strong id="routeDuration">—</strong></div>
+        <div><span>Yol ücretleri</span><strong id="routeTolls">—</strong></div>
+        <div><span>Rota verisi</span><strong id="routeStatus">Bekliyor</strong></div>
       </div>
     </section>
 
@@ -157,6 +185,17 @@
         <span>Veri güveni</span>
         <b id="confidence">—</b>
         <small>hesap güven seviyesi</small>
+      </div>
+
+      <div class="metric safe-cost">
+        <span>Koruma paylı toplam maliyet</span>
+        <b id="safeTotal">—</b>
+        <small id="safeTotalMeta">Belirsizlik + ticari koruma payı</small>
+      </div>
+      <div class="metric safe-cost">
+        <span>Koruma paylı birim maliyet</span>
+        <b id="safeUnit">—</b>
+        <small id="safeUnitLabel">USD / litre</small>
       </div>
 
       <div class="breakdown" id="breakdownText"></div>
