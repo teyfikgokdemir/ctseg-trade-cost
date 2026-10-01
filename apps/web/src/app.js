@@ -286,3 +286,41 @@ async function calculateRoute(){
   finally{btn.disabled=false;btn.textContent='Rotayı hesapla'}
 }
 document.querySelector('#calculateRoute').addEventListener('click',calculateRoute);
+
+
+function buildPrintReport(){
+  const s=shipment();
+  const get=id=>document.querySelector(id)?.textContent?.trim()||'—';
+  document.querySelector('#printDate').textContent=new Intl.DateTimeFormat('tr-TR',{dateStyle:'long',timeStyle:'short'}).format(new Date());
+  document.querySelector('#printProduct').textContent=document.querySelector('#productName').value||'—';
+  document.querySelector('#printHs').textContent=document.querySelector('#hsCode').value||'—';
+  document.querySelector('#printOriginCountry').textContent=document.querySelector('#originCountry').value||'—';
+  document.querySelector('#printIncoterm').textContent=document.querySelector('#incoterm').value||'—';
+  document.querySelector('#printOrigin').textContent=document.querySelector('#origin').value||'—';
+  document.querySelector('#printDestination').textContent=document.querySelector('#destination').value||'—';
+  document.querySelector('#printContainer').textContent=`${s.count} × ${document.querySelector('#containerType').value}`;
+  document.querySelector('#printQuantity').textContent=`${money(s.mt,2)} MT`;
+  document.querySelector('#printUnitFinal').textContent=get('#unitFinal')+' '+get('#unitFinalLabel');
+  document.querySelector('#printTotal').textContent=get('#total');
+  document.querySelector('#printSafeTotal').textContent=get('#safeTotal');
+  document.querySelector('#printConfidence').textContent=get('#confidence');
+  document.querySelector('#printRange').textContent=get('#range');
+  document.querySelector('#printCommercialStatus').textContent=get('#commercialStatus');
+
+  document.querySelector('#printCostRows').innerHTML=[...document.querySelectorAll('.cost-row')].map(row=>{
+    const label=row.querySelector('.label').value||'—';
+    const method=row.querySelector('.method').selectedOptions[0]?.textContent||'—';
+    const source=row.querySelector('.source').selectedOptions[0]?.textContent||'—';
+    const amount=row.querySelector('.computed').textContent||'—';
+    return `<tr><td>${label}</td><td>${method}</td><td>${source}</td><td>${amount}</td></tr>`;
+  }).join('');
+}
+
+document.querySelector('#printReport').addEventListener('click',()=>{
+  if(document.querySelector('#results').hidden){
+    alert('Önce maliyeti hesaplayın.');
+    return;
+  }
+  buildPrintReport();
+  window.print();
+});
