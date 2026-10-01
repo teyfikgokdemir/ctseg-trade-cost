@@ -177,6 +177,58 @@
       <p id="customsValuationNote" class="section-help">Bu alan çalışma değeridir. Hangi kalemin eklenip indirileceği hedef ülke kurallarına göre doğrulanmalıdır.</p>
     </section>
 
+    <section class="panel trade-remedies-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Ticaret önlemleri / ek gümrük yükleri</h2>
+          <p class="section-help">Anti-damping, countervailing, safeguard ve benzeri ek yükler standart gümrük vergisinden ayrı doğrulanır. Oran ve referans olmadan uygulanmaz.</p>
+        </div>
+      </div>
+
+      <div class="grid inputs">
+        <label>Önlem türü
+          <select id="tradeRemedyType">
+            <option value="ANTI_DUMPING">Anti-damping</option>
+            <option value="COUNTERVAILING">Countervailing duty</option>
+            <option value="SAFEGUARD">Safeguard</option>
+            <option value="ADDITIONAL_TARIFF">Additional tariff</option>
+            <option value="RETALIATORY_TARIFF">Retaliatory tariff</option>
+            <option value="OTHER_TRADE_REMEDY">Diğer ticaret önlemi</option>
+          </select>
+        </label>
+
+        <label>Hesaplama temeli
+          <select id="tradeRemedyBasis">
+            <option value="CUSTOMS_VALUE_PERCENT">Gümrük kıymetinin %</option>
+            <option value="GOODS_VALUE_PERCENT">Ürün bedelinin %</option>
+            <option value="PER_MT">MT başına</option>
+            <option value="FIXED">Sabit tutar</option>
+          </select>
+        </label>
+
+        <label>Doğrulanmış oran / tutar
+          <input id="tradeRemedyRate" type="number" min="0" step="0.01" />
+        </label>
+
+        <label>Kaynak
+          <select id="tradeRemedySource">
+            <option value="OFFICIAL">Resmî kaynak</option>
+            <option value="LIVE">Canlı veri</option>
+            <option value="MANUAL" selected>Manuel doğrulama</option>
+          </select>
+        </label>
+
+        <label class="remedy-reference-field">Resmî karar / dava / belge referansı
+          <input id="tradeRemedyReference" placeholder="Karar no, case no, resmî tarife/duyuru referansı" />
+        </label>
+      </div>
+
+      <div class="tax-entry-actions">
+        <button id="addTradeRemedy" type="button">Doğrulanmış önlemi ekle</button>
+      </div>
+      <p id="tradeRemedyNote" class="section-help">HS, menşe ve ithalat ülkesi değişirse mevcut remedy satırları yeniden doğrulanmalıdır.</p>
+    </section>
+
     <section class="panel tax-rule-panel">
       <div class="panel-head">
         <div>
