@@ -122,3 +122,23 @@ test('calculates Türkiye import VAT on customs value plus duty', async () => {
   assert.ok(Math.abs(vat.amount - 236.43) < 0.000001);
   assert.ok(Math.abs(r.total - 1418.58) < 0.000001);
 });
+
+
+test('country tax rule registry marks Türkiye configured and others manual-required', async () => {
+  const { getCountryRuleProfile, CountryRulePackStatus } = await import("../../rules/src/registry.js");
+
+  const tr = getCountryRuleProfile("TR");
+  assert.equal(tr.status, CountryRulePackStatus.CONFIGURED);
+  assert.equal(tr.taxModel, "IMPORT_VAT");
+  assert.equal(tr.automaticRate, false);
+
+  const af = getCountryRuleProfile("AF");
+  assert.equal(af.status, CountryRulePackStatus.MANUAL_REQUIRED);
+  assert.equal(af.ratePolicy, "VERIFIED_RATE_ONLY");
+  assert.equal(af.automaticRate, false);
+});
+
+test('country tax rule registry rejects non ISO2 codes', async () => {
+  const { getCountryRuleProfile } = await import("../../rules/src/registry.js");
+  assert.throws(() => getCountryRuleProfile("792"), /ISO 3166-1 alpha-2/);
+});
