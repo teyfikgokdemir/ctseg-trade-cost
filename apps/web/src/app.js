@@ -832,7 +832,7 @@ function addRow([label='',method='FIXED',rate=0,source='ESTIMATE',code='OTHER',m
     refreshCalculatedAmounts();
   });
   div.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',()=>{
-    if(div.dataset.code==='FREIGHT_INTL') invalidateBackhaul('freight-changed');
+    if(div.dataset.code==='FREIGHT_INTL') invalidateBackhaul('freight-changed',true);
     refreshCalculatedAmounts();
   }));
   rows.appendChild(div);
@@ -1707,9 +1707,19 @@ function resetBackhaulDisplay(message=null){
     : 'Önce navlun benchmark veya forwarder teklifinden bir çıkış navlun değeri oluşturun.');
 }
 
-function invalidateBackhaul(reason='context-changed'){
+function clearBackhaulMetadataPreserveFreight(){
+  const freight=findFreightRow();
+  if(!freight) return;
+  delete freight.dataset.backhaulOriginalRate;
+  delete freight.dataset.backhaulBenefit;
+  delete freight.dataset.backhaulKey;
+  freight.classList.remove('backhaul-applied');
+}
+
+function invalidateBackhaul(reason='context-changed',preserveCurrentFreight=false){
   if(currentBackhaulResult || findFreightRow()?.dataset.backhaulOriginalRate){
-    restoreBackhaulAppliedFreight();
+    if(preserveCurrentFreight) clearBackhaulMetadataPreserveFreight();
+    else restoreBackhaulAppliedFreight();
   }
   currentBackhaulResult=null;
   resetBackhaulDisplay(currentLanguage==='en'
