@@ -465,3 +465,46 @@ test('unresolved trade remedy candidate never invents a zero rate', async () => 
   assert.equal(r.verified, false);
   assert.equal(r.requiresVerification, true);
 });
+
+
+test('trade remedy provider registry routes EU destinations to TARIC', async () => {
+  const { buildTradeRemedyLookupPlan } = await import("../../providers/src/trade-remedies.js");
+  const plan = buildTradeRemedyLookupPlan({
+    originCountry: "CN",
+    importCountry: "DE",
+    hsCode: "730890",
+    type: "ANTI_DUMPING"
+  });
+
+  assert.equal(plan.status, "OFFICIAL_PROVIDER_AVAILABLE");
+  assert.equal(plan.autoApply, false);
+  assert.ok(plan.providers.some(x => x.id === "eu-taric"));
+});
+
+test('trade remedy provider registry routes US AD/CVD to official US sources', async () => {
+  const { buildTradeRemedyLookupPlan } = await import("../../providers/src/trade-remedies.js");
+  const plan = buildTradeRemedyLookupPlan({
+    originCountry: "CN",
+    importCountry: "US",
+    hsCode: "730890",
+    type: "ANTI_DUMPING"
+  });
+
+  assert.equal(plan.status, "OFFICIAL_PROVIDER_AVAILABLE");
+  assert.ok(plan.providers.some(x => x.id === "us-ita-adcvd"));
+  assert.ok(plan.providers.some(x => x.id === "us-cbp-adcvd"));
+});
+
+test('trade remedy provider registry falls back safely when no official connector is configured', async () => {
+  const { buildTradeRemedyLookupPlan } = await import("../../providers/src/trade-remedies.js");
+  const plan = buildTradeRemedyLookupPlan({
+    originCountry: "BR",
+    importCountry: "MA",
+    hsCode: "080212",
+    type: "ANTI_DUMPING"
+  });
+
+  assert.equal(plan.status, "MANUAL_VERIFICATION_REQUIRED");
+  assert.equal(plan.providers.length, 0);
+  assert.equal(plan.autoApply, false);
+});
