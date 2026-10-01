@@ -87,8 +87,76 @@
         <button id="refreshFx">Kuru yenile</button>
       </div>
       <div class="fx-grid">
-        <label>Kaynak para birimi<input id="fxBase" value="USD" maxlength="3" /></label>
-        <label>Hedef para birimi<input id="fxQuote" value="TRY" maxlength="3" /></label>
+        <label>Kaynak para birimi
+          <select id="fxBase">
+            <option value="USD" selected>USD — ABD Doları</option>
+            <option value="EUR">EUR — Euro</option>
+            <option value="TRY">TRY — Türk Lirası</option>
+            <option value="GBP">GBP — İngiliz Sterlini</option>
+            <option value="CHF">CHF — İsviçre Frangı</option>
+            <option value="JPY">JPY — Japon Yeni</option>
+            <option value="CAD">CAD — Kanada Doları</option>
+            <option value="AUD">AUD — Avustralya Doları</option>
+            <option value="NZD">NZD — Yeni Zelanda Doları</option>
+            <option value="SEK">SEK — İsveç Kronu</option>
+            <option value="NOK">NOK — Norveç Kronu</option>
+            <option value="DKK">DKK — Danimarka Kronu</option>
+            <option value="PLN">PLN — Polonya Zlotisi</option>
+            <option value="CZK">CZK — Çek Korunası</option>
+            <option value="HUF">HUF — Macar Forinti</option>
+            <option value="RON">RON — Rumen Leyi</option>
+            <option value="BGN">BGN — Bulgar Levası</option>
+            <option value="CNY">CNY — Çin Yuanı</option>
+            <option value="HKD">HKD — Hong Kong Doları</option>
+            <option value="SGD">SGD — Singapur Doları</option>
+            <option value="KRW">KRW — Güney Kore Wonu</option>
+            <option value="INR">INR — Hindistan Rupisi</option>
+            <option value="IDR">IDR — Endonezya Rupisi</option>
+            <option value="MYR">MYR — Malezya Ringgiti</option>
+            <option value="THB">THB — Tayland Bahtı</option>
+            <option value="PHP">PHP — Filipin Pesosu</option>
+            <option value="MXN">MXN — Meksika Pesosu</option>
+            <option value="BRL">BRL — Brezilya Reali</option>
+            <option value="ZAR">ZAR — Güney Afrika Randı</option>
+            <option value="ILS">ILS — İsrail Şekeli</option>
+            <option value="ISK">ISK — İzlanda Kronası</option>
+          </select>
+        </label>
+        <label>Hedef para birimi
+          <select id="fxQuote">
+            <option value="USD">USD — ABD Doları</option>
+            <option value="EUR">EUR — Euro</option>
+            <option value="TRY" selected>TRY — Türk Lirası</option>
+            <option value="GBP">GBP — İngiliz Sterlini</option>
+            <option value="CHF">CHF — İsviçre Frangı</option>
+            <option value="JPY">JPY — Japon Yeni</option>
+            <option value="CAD">CAD — Kanada Doları</option>
+            <option value="AUD">AUD — Avustralya Doları</option>
+            <option value="NZD">NZD — Yeni Zelanda Doları</option>
+            <option value="SEK">SEK — İsveç Kronu</option>
+            <option value="NOK">NOK — Norveç Kronu</option>
+            <option value="DKK">DKK — Danimarka Kronu</option>
+            <option value="PLN">PLN — Polonya Zlotisi</option>
+            <option value="CZK">CZK — Çek Korunası</option>
+            <option value="HUF">HUF — Macar Forinti</option>
+            <option value="RON">RON — Rumen Leyi</option>
+            <option value="BGN">BGN — Bulgar Levası</option>
+            <option value="CNY">CNY — Çin Yuanı</option>
+            <option value="HKD">HKD — Hong Kong Doları</option>
+            <option value="SGD">SGD — Singapur Doları</option>
+            <option value="KRW">KRW — Güney Kore Wonu</option>
+            <option value="INR">INR — Hindistan Rupisi</option>
+            <option value="IDR">IDR — Endonezya Rupisi</option>
+            <option value="MYR">MYR — Malezya Ringgiti</option>
+            <option value="THB">THB — Tayland Bahtı</option>
+            <option value="PHP">PHP — Filipin Pesosu</option>
+            <option value="MXN">MXN — Meksika Pesosu</option>
+            <option value="BRL">BRL — Brezilya Reali</option>
+            <option value="ZAR">ZAR — Güney Afrika Randı</option>
+            <option value="ILS">ILS — İsrail Şekeli</option>
+            <option value="ISK">ISK — İzlanda Kronası</option>
+          </select>
+        </label>
         <div class="fx-value">
           <span>Referans kur</span>
           <strong id="fxRate">—</strong>
