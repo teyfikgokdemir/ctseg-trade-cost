@@ -36,6 +36,23 @@ const STATIC_TRANSLATIONS={
   'Toplam net miktar (MT)':'Total net quantity (MT)',
   'Alış fiyatı':'Purchase price',
   'Fiyat birimi':'Price unit',
+  'Gümrük kıymeti doğrulama':'Customs valuation verification',
+  'Transaction value üzerine yalnız doğrulanmış ekleme/indirimleri uygulayın. Hedef ülkenin valuation kuralı doğrulanmadan final duty hesaplanmaz.':'Apply only verified additions/deductions to the transaction value. Final duty is not calculated until the destination-country valuation rule is verified.',
+  'Transaction value (USD)':'Transaction value (USD)',
+  'Doğrulama durumu':'Verification status',
+  'Çalışma değeri':'Working value',
+  'Doğrulandı':'Verified',
+  'Gümrük kıymeti (USD)':'Customs value (USD)',
+  'Sınıra kadar navlun ekle':'Add freight to border',
+  'Sınıra kadar sigorta ekle':'Add insurance to border',
+  'Ambalaj / packing ekle':'Add packing',
+  'Assists ekle':'Add assists',
+  'Royalty / lisans ekle':'Add royalty / licence fees',
+  'Satış komisyonu ekle':'Add selling commission',
+  'Diğer ekleme':'Other addition',
+  'İthalat sonrası taşıma indir':'Deduct post-import transport',
+  'Diğer indirim':'Other deduction',
+  'Bu alan çalışma değeridir. Hangi kalemin eklenip indirileceği hedef ülke kurallarına göre doğrulanmalıdır.':'This is a working value. Whether each item is includable or deductible must be verified under the destination-country rules.',
   'Gümrük ve tarife doğrulama':'Customs and tariff verification',
   'HS6, menşe ve ithalat ülkesine göre WTO resmi tarife verisi otomatik sorgulanır.':'Official WTO tariff data is queried automatically by HS6, origin and import country.',
   'Tarifeyi yenile':'Refresh tariff',
@@ -455,15 +472,46 @@ function calculateRow(row,{excludeCustoms=false}={}){
   }
   return 0;
 }
+function customsValuationValues(){
+  const transactionValue=goodsTotal();
+  const additions=[
+    '#cvFreight','#cvInsurance','#cvPacking','#cvAssists','#cvRoyalties','#cvSellingCommission','#cvOtherAddition'
+  ].reduce((sum,selector)=>sum+(Math.max(0,Number(document.querySelector(selector)?.value)||0)),0);
+  const deductions=[
+    '#cvPostImportTransport','#cvOtherDeduction'
+  ].reduce((sum,selector)=>sum+(Math.max(0,Number(document.querySelector(selector)?.value)||0)),0);
+  const value=Math.max(0,transactionValue+additions-deductions);
+  return {
+    transactionValue,
+    additions,
+    deductions,
+    value,
+    status:document.querySelector('#customsValuationStatus')?.value||'WORKING'
+  };
+}
+
+function updateCustomsValuation(){
+  const v=customsValuationValues();
+  const tx=document.querySelector('#customsTransactionValue');
+  const value=document.querySelector('#customsValue');
+  const note=document.querySelector('#customsValuationNote');
+  if(tx) tx.value=v.transactionValue?String(Number(v.transactionValue.toFixed(2))):'';
+  if(value) value.value=String(Number(v.value.toFixed(2)));
+  if(note){
+    note.textContent=v.status==='VERIFIED'
+      ? (currentLanguage==='en'
+        ? 'Customs value marked verified for this scenario. Re-verify if price, Incoterm or adjustments change.'
+        : 'Gümrük kıymeti bu senaryo için doğrulandı. Fiyat, Incoterm veya düzeltmeler değişirse yeniden doğrulayın.')
+      : (currentLanguage==='en'
+        ? 'Working customs value only. Verify destination-country valuation treatment before final calculation.'
+        : 'Bu yalnız çalışma gümrük kıymetidir. Final hesap öncesi hedef ülke valuation uygulamasını doğrulayın.');
+  }
+  refreshCalculatedAmounts();
+  return v;
+}
+
 function customsBase(){
-  const costRows=[...document.querySelectorAll('.cost-row')];
-  const freight=costRows
-    .filter(r=>/navlun|freight|nakliye/i.test(r.querySelector('.label').value))
-    .reduce((sum,r)=>sum+calculateRow(r,{excludeCustoms:true}),0);
-  const insurance=costRows
-    .filter(r=>/sigorta|insurance/i.test(r.querySelector('.label').value))
-    .reduce((sum,r)=>sum+calculateRow(r,{excludeCustoms:true}),0);
-  return goodsTotal()+freight+insurance;
+  return customsValuationValues().value;
 }
 function importTaxBase(){
   const duty=findDutyRow();
@@ -496,7 +544,7 @@ function refreshCalculatedAmounts(){
 }
 function syncShipment(){
   document.querySelector('#totalMt').value=shipment().mt.toFixed(2);
-  refreshCalculatedAmounts();
+  updateCustomsValuation();
   renderQuoteSummary();
   updateIncotermStatus();
 }
@@ -986,6 +1034,22 @@ async function restoreCalculationSnapshot(item){
   if(Number.isFinite(Number(input.routeProfile?.heightCm))) document.querySelector('#heightCm').value=String(input.routeProfile.heightCm);
   if(Number.isFinite(Number(input.routeProfile?.commercialBufferPct))) document.querySelector('#commercialBuffer').value=String(input.routeProfile.commercialBufferPct);
 
+  if(input.customsValuation){
+    const cv=input.customsValuation;
+    if(cv.status && [...document.querySelector('#customsValuationStatus').options].some(o=>o.value===cv.status)){
+      document.querySelector('#customsValuationStatus').value=cv.status;
+    }
+    const cvInputs=cv.inputs||{};
+    const map={
+      freight:'#cvFreight',insurance:'#cvInsurance',packing:'#cvPacking',assists:'#cvAssists',
+      royalties:'#cvRoyalties',sellingCommission:'#cvSellingCommission',otherAddition:'#cvOtherAddition',
+      postImportTransport:'#cvPostImportTransport',otherDeduction:'#cvOtherDeduction'
+    };
+    for(const [key,selector] of Object.entries(map)){
+      if(Number.isFinite(Number(cvInputs[key]))) document.querySelector(selector).value=String(cvInputs[key]);
+    }
+  }
+
   if(Array.isArray(input.costRows)&&input.costRows.length){
     rows.replaceChildren();
     for(const row of input.costRows){
@@ -1310,8 +1374,18 @@ document.querySelector('#calculate').addEventListener('click',()=>{
   }
 
   const goods=goodsTotal();
+  const customsValuation=customsValuationValues();
   const costRows=[...document.querySelectorAll('.cost-row')];
   const dutyRow=findDutyRow();
+  if(dutyRow && String(dutyRow.querySelector('.rate').value).trim()!==''){
+    if(customsValuation.status!=='VERIFIED'){
+      alert(currentLanguage==='en'
+        ? 'Customs value is not verified. Verify the destination-country customs valuation treatment before calculating duty.'
+        : 'Gümrük kıymeti doğrulanmadı. Gümrük vergisini hesaplamadan önce hedef ülkenin gümrük kıymeti uygulamasını doğrulayın.');
+      document.querySelector('#customsValuationStatus').focus();
+      return;
+    }
+  }
   if(dutyRow && /doğrulanacak|to be verified/i.test(dutyRow.querySelector('.label').value)){
     const dutyRateRaw=dutyRow.querySelector('.rate').value.trim();
     const dutySource=dutyRow.querySelector('.source').value;
@@ -1410,6 +1484,24 @@ document.querySelector('#calculate').addEventListener('click',()=>{
       importCountry:document.querySelector('#importCountry').value,
       importCountryIso2:selectedCountryIso2('#importCountry'),
       incoterm:document.querySelector('#incoterm').value
+    },
+    customsValuation:{
+      transactionValue:customsValuation.transactionValue,
+      additions:customsValuation.additions,
+      deductions:customsValuation.deductions,
+      value:customsValuation.value,
+      status:customsValuation.status,
+      inputs:{
+        freight:Number(document.querySelector('#cvFreight').value)||0,
+        insurance:Number(document.querySelector('#cvInsurance').value)||0,
+        packing:Number(document.querySelector('#cvPacking').value)||0,
+        assists:Number(document.querySelector('#cvAssists').value)||0,
+        royalties:Number(document.querySelector('#cvRoyalties').value)||0,
+        sellingCommission:Number(document.querySelector('#cvSellingCommission').value)||0,
+        otherAddition:Number(document.querySelector('#cvOtherAddition').value)||0,
+        postImportTransport:Number(document.querySelector('#cvPostImportTransport').value)||0,
+        otherDeduction:Number(document.querySelector('#cvOtherDeduction').value)||0
+      }
     },
     routeProfile:{
       grossWeightKg:Number(document.querySelector('#grossWeightKg').value)||0,
@@ -1724,3 +1816,26 @@ document.querySelector('#printReport').addEventListener('click',()=>{
   buildPrintReport();
   window.print();
 });
+
+
+['cvFreight','cvInsurance','cvPacking','cvAssists','cvRoyalties','cvSellingCommission','cvOtherAddition','cvPostImportTransport','cvOtherDeduction']
+  .forEach(id=>document.querySelector('#'+id)?.addEventListener('input',()=>{
+    if(document.querySelector('#customsValuationStatus').value==='VERIFIED'){
+      document.querySelector('#customsValuationStatus').value='WORKING';
+    }
+    updateCustomsValuation();
+  }));
+document.querySelector('#customsValuationStatus')?.addEventListener('change',updateCustomsValuation);
+document.querySelector('#price')?.addEventListener('input',()=>{
+  if(document.querySelector('#customsValuationStatus').value==='VERIFIED'){
+    document.querySelector('#customsValuationStatus').value='WORKING';
+  }
+  updateCustomsValuation();
+});
+document.querySelector('#priceUnit')?.addEventListener('change',()=>{
+  if(document.querySelector('#customsValuationStatus').value==='VERIFIED'){
+    document.querySelector('#customsValuationStatus').value='WORKING';
+  }
+  updateCustomsValuation();
+});
+updateCustomsValuation();
