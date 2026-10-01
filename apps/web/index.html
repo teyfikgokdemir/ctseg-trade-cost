@@ -317,6 +317,43 @@
       <p id="freightBenchmarkNote" class="section-help">Önce rotayı hesaplayın veya aynı rota için forwarder teklifi kaydedin.</p>
     </section>
 
+    <section class="panel backhaul-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Dönüş yükü / Backhaul</h2>
+          <p class="section-help">Taşıyıcının boş dönüşünü azaltabilecek dönüş yükü gelirini ve efektif navlun etkisini hesaplar. Doğrulanmamış piyasa sinyali final maliyete otomatik uygulanmaz.</p>
+        </div>
+      </div>
+
+      <div class="grid inputs">
+        <label>Kanıt türü
+          <select id="backhaulEvidence">
+            <option value="CONFIRMED_LOAD">Doğrulanmış dönüş yükü</option>
+            <option value="MARKET_SIGNAL">Piyasa sinyali</option>
+            <option value="MANUAL_ESTIMATE">Manuel tahmin</option>
+          </select>
+        </label>
+        <label>Dönüş yükü geliri (USD / ekipman)<input id="backhaulRevenue" type="number" min="0" step="1" /></label>
+        <label>Dönüş yükü ek maliyeti (USD / ekipman)<input id="backhaulExtraCost" type="number" min="0" step="1" value="0" /></label>
+        <label>Bulunma olasılığı (%)<input id="backhaulProbability" type="number" min="0" max="100" step="1" value="100" /></label>
+        <label>Boş dönüş km<input id="backhaulEmptyKm" type="number" min="0" step="1" value="0" /></label>
+        <label>Ek sapma km<input id="backhaulDetourKm" type="number" min="0" step="1" value="0" /></label>
+      </div>
+
+      <div class="route-stats">
+        <div><span>Beklenen dönüş geliri</span><strong id="backhaulExpectedRevenue">—</strong></div>
+        <div><span>Net ekonomik fayda</span><strong id="backhaulBenefit">—</strong></div>
+        <div><span>Efektif navlun / ekipman</span><strong id="backhaulEffectiveFreight">—</strong></div>
+        <div><span>Güven</span><strong id="backhaulConfidence">Bekliyor</strong></div>
+      </div>
+
+      <div class="tax-entry-actions">
+        <button id="calculateBackhaul" type="button">Backhaul etkisini hesapla</button>
+        <button id="applyBackhaul" type="button">Doğrulanmış faydayı uygula</button>
+      </div>
+      <p id="backhaulNote" class="section-help">Önce navlun benchmark veya forwarder teklifinden bir çıkış navlun değeri oluşturun.</p>
+    </section>
+
     <section class="panel fx-panel">
       <div class="panel-head">
         <h2>Güncel döviz kuru</h2>
