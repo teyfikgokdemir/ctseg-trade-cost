@@ -121,6 +121,28 @@
         <div><span>Durum</span><strong id="tariffStatus">Bekliyor</strong></div>
       </div>
       <p id="tariffNote" class="section-help">HS kodu ve ülkeler seçildiğinde otomatik sorgulanır.</p>
+
+      <div class="preferential-box">
+        <div class="preferential-head">
+          <div>
+            <strong>Preferential / FTA doğrulama</strong>
+            <small>WTO preferential verisi yalnız adaydır; uygunluk ve uygulanabilir oran ayrıca doğrulanmalıdır.</small>
+          </div>
+        </div>
+        <div class="grid inputs">
+          <label>Aday preferential oran<input id="preferentialCandidateRate" type="text" readonly /></label>
+          <label>Uygunluk
+            <select id="preferentialEligibility">
+              <option value="NOT_CONFIRMED">Doğrulanmadı</option>
+              <option value="NOT_ELIGIBLE">Uygun değil</option>
+              <option value="ELIGIBLE">Uygun</option>
+            </select>
+          </label>
+          <label>Doğrulanmış preferential oran (%)<input id="verifiedPreferentialRate" type="number" min="0" step="0.01" /></label>
+          <label>Scheme / belge referansı<input id="preferentialSchemeReference" placeholder="FTA / origin proof / official reference" /></label>
+        </div>
+        <p id="preferentialNote" class="section-help">Uygunluk doğrulanana kadar MFN güvenli varsayılan olarak kalır.</p>
+      </div>
     </section>
 
     <section class="panel customs-valuation-panel">
