@@ -43,15 +43,238 @@ document.querySelector('#calculate').onclick=()=>{
    amount:+r.querySelector('.amount').value||0,
    source:r.querySelector('.source').value
  }));
- const total=goods+costs.reduce((s,c)=>s+c.amount,0);
+ const extra=costs.reduce((s,c)=>s+c.amount,0);
+ const total=goods+extra;
  const low=goods+costs.reduce((s,c)=>s+c.amount*(1-spreads[c.source]),0);
  const high=goods+costs.reduce((s,c)=>s+c.amount*(1+spreads[c.source]),0);
  const conf=Math.round((goods*.92+costs.reduce((s,c)=>s+c.amount*weights[c.source],0))/total*100);
 
- document.querySelector('#perLitre').textContent='$'+money(total/litres,4);
- document.querySelector('#total').textContent='$'+money(total,0);
- document.querySelector('#perMt').textContent='$'+money(total/mt,2);
+ document.querySelector('#perLitre').textContent='
+ document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
+ document.querySelector('#routeText').textContent=`${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${mt} MT`;
+ document.querySelector('#results').hidden=false;
+};
+
+async function loadFx(){
+ const btn=document.querySelector('#refreshFx');
+ const rateEl=document.querySelector('#fxRate');
+ const metaEl=document.querySelector('#fxMeta');
+ const base=document.querySelector('#fxBase').value.trim().toUpperCase();
+ const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
+ btn.disabled=true;
+ btn.textContent='Yükleniyor…';
+ try{
+   const res=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`);
+   if(!res.ok) throw new Error('Kur verisi alınamadı');
+   const data=await res.json();
+   rateEl.textContent=`1 ${base} = ${money(data.rate,4)} ${quote}`;
+   const date=data.date ? new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')) : 'güncel';
+   metaEl.textContent=`${date} · ${data.sourceName || 'referans veri'}`;
+ }catch(error){
+   rateEl.textContent='Veri alınamadı';
+   metaEl.textContent='Cloudflare Function deploy edildikten sonra otomatik çalışacaktır.';
+ }finally{
+   btn.disabled=false;
+   btn.textContent='Kuru yenile';
+ }
+}
+document.querySelector('#refreshFx').onclick=loadFx;
+loadFx();
++money(total/litres,4);
+ document.querySelector('#goodsTotal').textContent='
+ document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
+ document.querySelector('#routeText').textContent=`${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${mt} MT`;
+ document.querySelector('#results').hidden=false;
+};
+
+async function loadFx(){
+ const btn=document.querySelector('#refreshFx');
+ const rateEl=document.querySelector('#fxRate');
+ const metaEl=document.querySelector('#fxMeta');
+ const base=document.querySelector('#fxBase').value.trim().toUpperCase();
+ const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
+ btn.disabled=true;
+ btn.textContent='Yükleniyor…';
+ try{
+   const res=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`);
+   if(!res.ok) throw new Error('Kur verisi alınamadı');
+   const data=await res.json();
+   rateEl.textContent=`1 ${base} = ${money(data.rate,4)} ${quote}`;
+   const date=data.date ? new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')) : 'güncel';
+   metaEl.textContent=`${date} · ${data.sourceName || 'referans veri'}`;
+ }catch(error){
+   rateEl.textContent='Veri alınamadı';
+   metaEl.textContent='Cloudflare Function deploy edildikten sonra otomatik çalışacaktır.';
+ }finally{
+   btn.disabled=false;
+   btn.textContent='Kuru yenile';
+ }
+}
+document.querySelector('#refreshFx').onclick=loadFx;
+loadFx();
++money(goods,0);
+ document.querySelector('#extraTotal').textContent='
+ document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
+ document.querySelector('#routeText').textContent=`${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${mt} MT`;
+ document.querySelector('#results').hidden=false;
+};
+
+async function loadFx(){
+ const btn=document.querySelector('#refreshFx');
+ const rateEl=document.querySelector('#fxRate');
+ const metaEl=document.querySelector('#fxMeta');
+ const base=document.querySelector('#fxBase').value.trim().toUpperCase();
+ const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
+ btn.disabled=true;
+ btn.textContent='Yükleniyor…';
+ try{
+   const res=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`);
+   if(!res.ok) throw new Error('Kur verisi alınamadı');
+   const data=await res.json();
+   rateEl.textContent=`1 ${base} = ${money(data.rate,4)} ${quote}`;
+   const date=data.date ? new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')) : 'güncel';
+   metaEl.textContent=`${date} · ${data.sourceName || 'referans veri'}`;
+ }catch(error){
+   rateEl.textContent='Veri alınamadı';
+   metaEl.textContent='Cloudflare Function deploy edildikten sonra otomatik çalışacaktır.';
+ }finally{
+   btn.disabled=false;
+   btn.textContent='Kuru yenile';
+ }
+}
+document.querySelector('#refreshFx').onclick=loadFx;
+loadFx();
++money(extra,0);
+ document.querySelector('#total').textContent='
+ document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
+ document.querySelector('#routeText').textContent=`${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${mt} MT`;
+ document.querySelector('#results').hidden=false;
+};
+
+async function loadFx(){
+ const btn=document.querySelector('#refreshFx');
+ const rateEl=document.querySelector('#fxRate');
+ const metaEl=document.querySelector('#fxMeta');
+ const base=document.querySelector('#fxBase').value.trim().toUpperCase();
+ const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
+ btn.disabled=true;
+ btn.textContent='Yükleniyor…';
+ try{
+   const res=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`);
+   if(!res.ok) throw new Error('Kur verisi alınamadı');
+   const data=await res.json();
+   rateEl.textContent=`1 ${base} = ${money(data.rate,4)} ${quote}`;
+   const date=data.date ? new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')) : 'güncel';
+   metaEl.textContent=`${date} · ${data.sourceName || 'referans veri'}`;
+ }catch(error){
+   rateEl.textContent='Veri alınamadı';
+   metaEl.textContent='Cloudflare Function deploy edildikten sonra otomatik çalışacaktır.';
+ }finally{
+   btn.disabled=false;
+   btn.textContent='Kuru yenile';
+ }
+}
+document.querySelector('#refreshFx').onclick=loadFx;
+loadFx();
++money(total,0);
+ document.querySelector('#goodsPerLitre').textContent='
+ document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
+ document.querySelector('#routeText').textContent=`${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${mt} MT`;
+ document.querySelector('#results').hidden=false;
+};
+
+async function loadFx(){
+ const btn=document.querySelector('#refreshFx');
+ const rateEl=document.querySelector('#fxRate');
+ const metaEl=document.querySelector('#fxMeta');
+ const base=document.querySelector('#fxBase').value.trim().toUpperCase();
+ const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
+ btn.disabled=true;
+ btn.textContent='Yükleniyor…';
+ try{
+   const res=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`);
+   if(!res.ok) throw new Error('Kur verisi alınamadı');
+   const data=await res.json();
+   rateEl.textContent=`1 ${base} = ${money(data.rate,4)} ${quote}`;
+   const date=data.date ? new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')) : 'güncel';
+   metaEl.textContent=`${date} · ${data.sourceName || 'referans veri'}`;
+ }catch(error){
+   rateEl.textContent='Veri alınamadı';
+   metaEl.textContent='Cloudflare Function deploy edildikten sonra otomatik çalışacaktır.';
+ }finally{
+   btn.disabled=false;
+   btn.textContent='Kuru yenile';
+ }
+}
+document.querySelector('#refreshFx').onclick=loadFx;
+loadFx();
++money(goods/litres,4);
+ document.querySelector('#extraPerLitre').textContent='
+ document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
+ document.querySelector('#routeText').textContent=`${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${mt} MT`;
+ document.querySelector('#results').hidden=false;
+};
+
+async function loadFx(){
+ const btn=document.querySelector('#refreshFx');
+ const rateEl=document.querySelector('#fxRate');
+ const metaEl=document.querySelector('#fxMeta');
+ const base=document.querySelector('#fxBase').value.trim().toUpperCase();
+ const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
+ btn.disabled=true;
+ btn.textContent='Yükleniyor…';
+ try{
+   const res=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`);
+   if(!res.ok) throw new Error('Kur verisi alınamadı');
+   const data=await res.json();
+   rateEl.textContent=`1 ${base} = ${money(data.rate,4)} ${quote}`;
+   const date=data.date ? new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')) : 'güncel';
+   metaEl.textContent=`${date} · ${data.sourceName || 'referans veri'}`;
+ }catch(error){
+   rateEl.textContent='Veri alınamadı';
+   metaEl.textContent='Cloudflare Function deploy edildikten sonra otomatik çalışacaktır.';
+ }finally{
+   btn.disabled=false;
+   btn.textContent='Kuru yenile';
+ }
+}
+document.querySelector('#refreshFx').onclick=loadFx;
+loadFx();
++money(extra/litres,4);
+ document.querySelector('#perMt').textContent='
+ document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
+ document.querySelector('#routeText').textContent=`${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${mt} MT`;
+ document.querySelector('#results').hidden=false;
+};
+
+async function loadFx(){
+ const btn=document.querySelector('#refreshFx');
+ const rateEl=document.querySelector('#fxRate');
+ const metaEl=document.querySelector('#fxMeta');
+ const base=document.querySelector('#fxBase').value.trim().toUpperCase();
+ const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
+ btn.disabled=true;
+ btn.textContent='Yükleniyor…';
+ try{
+   const res=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`);
+   if(!res.ok) throw new Error('Kur verisi alınamadı');
+   const data=await res.json();
+   rateEl.textContent=`1 ${base} = ${money(data.rate,4)} ${quote}`;
+   const date=data.date ? new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')) : 'güncel';
+   metaEl.textContent=`${date} · ${data.sourceName || 'referans veri'}`;
+ }catch(error){
+   rateEl.textContent='Veri alınamadı';
+   metaEl.textContent='Cloudflare Function deploy edildikten sonra otomatik çalışacaktır.';
+ }finally{
+   btn.disabled=false;
+   btn.textContent='Kuru yenile';
+ }
+}
+document.querySelector('#refreshFx').onclick=loadFx;
+loadFx();
++money(total/mt,2);
  document.querySelector('#confidence').textContent=conf+'%';
+ document.querySelector('#breakdownText').innerHTML=`<span>EXW ürün</span><strong>${money(goods,0)}</strong><span>+</span><span>Ek maliyetler</span><strong>${money(extra,0)}</strong><span>=</span><span>Nihai toplam</span><strong>${money(total,0)}</strong>`;
  document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
  document.querySelector('#routeText').textContent=`${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${mt} MT`;
  document.querySelector('#results').hidden=false;
