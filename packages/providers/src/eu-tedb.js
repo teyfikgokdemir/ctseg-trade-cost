@@ -26,9 +26,11 @@ function extractVatResults(xml){
   const blocks=String(xml||"").match(/<(?:\w+:)?vatRateResults\b[\s\S]*?<\/(?:\w+:)?vatRateResults>/gi)||[];
   return blocks.map(block=>{
     const type=stripTags(block.match(/<(?:\w+:)?type>([\s\S]*?)<\/(?:\w+:)?type>/i)?.[1]).toUpperCase();
-    const valueRaw=stripTags(block.match(/<(?:\w+:)?value>([\s\S]*?)<\/(?:\w+:)?value>/i)?.[1]);
+    const rateBlock=block.match(/<(?:\w+:)?rate\b[\s\S]*?<\/(?:\w+:)?rate>/i)?.[0]||"";
+    const valueRaw=stripTags(rateBlock.match(/<(?:\w+:)?value>([\s\S]*?)<\/(?:\w+:)?value>/i)?.[1]);
     const rate=Number(valueRaw);
-    const cnValues=[...block.matchAll(/<(?:\w+:)?value>(\d{4,10})<\/(?:\w+:)?value>/gi)].map(m=>m[1]);
+    const cnBlock=block.match(/<(?:\w+:)?cnCodes\b[\s\S]*?<\/(?:\w+:)?cnCodes>/i)?.[0]||"";
+    const cnValues=[...cnBlock.matchAll(/<(?:\w+:)?value>(\d{4,10})<\/(?:\w+:)?value>/gi)].map(m=>m[1]);
     return {
       type,
       rate:Number.isFinite(rate)?rate:null,
