@@ -262,7 +262,12 @@ export async function onRequestGet({ request, env }) {
       }
 
       const cacheInput = { hs, reporter, partner, year };
-      const cached = await readTariffCache(env, cacheInput);
+      let cached = null;
+      try {
+        cached = await readTariffCache(env, cacheInput);
+      } catch {
+        // Missing/old D1 schema or cache errors must not block fresh WTO lookup.
+      }
       if (cached) {
         return json({
           provider: "wto-timeseries-v1",
