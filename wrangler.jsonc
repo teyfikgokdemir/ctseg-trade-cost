@@ -4,5 +4,13 @@
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./apps/web"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ctseg-trade-cost-db",
+      "database_id": "6813109c-829f-4d32-8958-c30b64ba4aaf",
+      "migrations_dir": "migrations"
+    }
+  ]
 }
