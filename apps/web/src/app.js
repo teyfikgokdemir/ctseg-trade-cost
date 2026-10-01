@@ -7,7 +7,7 @@ const STATIC_TRANSLATIONS={
   'Konteyner, ürün, rota ve ülke bazında ithalat / ihracat maliyet motoru.':'Import / export cost engine by container, product, route and country.',
   'Dil':'Language',
   'Sevkiyat ve ürün':'Shipment and product',
-  'Nakliye konteyner bazlı; ürün ve vergi hesapları kendi gerçek matrahına göre çalışır.':'Freight is container-based; product and tax calculations use their actual tax bases.',
+  'Nakliye taşıma modu ve ekipman bazlı; ürün ve vergi hesapları kendi gerçek matrahına göre çalışır.':'Freight is modeled by transport mode and equipment; product and tax calculations use their actual tax bases.',
   'Ürün':'Product',
   'HS Code':'HS Code',
   'Üründen ara':'Search by product',
@@ -80,7 +80,7 @@ const STATIC_TRANSLATIONS={
   'Gerçek teklifleri kaydet. Sistem aynı rota ve konteyner tipindeki geçerli tekliflerden güncel değer üretir.':'Save real quotes. The system derives a current value from valid quotes for the same route and container type.',
   'Uygun navlunu uygula':'Apply matching freight',
   'Firma / forwarder':'Company / forwarder',
-  'USD / konteyner':'USD / container',
+  'USD / ekipman':'USD / equipment',
   'Teklif tarihi':'Quote date',
   'Geçerlilik sonu':'Valid until',
   'Teklifi kaydet':'Save quote',
@@ -279,7 +279,7 @@ function translateStaticDocument(){
   }
 
   const placeholders={
-    productName:{tr:'Ayçiçek yağı',en:'Sunflower oil'},
+    productName:{tr:'Ürün adı veya ticari tanım',en:'Product name or commercial description'},
     hsCode:{tr:'Kod veya ürün adı yazın…',en:'Type HS code or product name…'},
     quoteProvider:{tr:'Örn. ABC Lojistik',en:'e.g. ABC Logistics'},
     origin:{tr:'Şehir, liman, depo veya sınır kapısı',en:'City, port, warehouse or border crossing'},
@@ -289,12 +289,7 @@ function translateStaticDocument(){
   for(const [id,values] of Object.entries(placeholders)){
     const el=document.querySelector('#'+id);
     if(!el) continue;
-    if(id==='productName'){
-      const known=['Ayçiçek yağı','Sunflower oil'];
-      if(known.includes(el.value)) el.value=values[currentLanguage];
-    }else{
-      el.placeholder=values[currentLanguage];
-    }
+    el.placeholder=values[currentLanguage];
   }
 
   document.documentElement.lang=currentLanguage;
@@ -560,7 +555,9 @@ async function loadCountryTaxProfile(){
 
     const profile=data.profile||{};
     const configured=profile.status==='COUNTRY_SPECIFIC';
-    statusEl.textContent=configured?msg('taxRuleConfigured'):msg('taxRuleManual');
+    statusEl.textContent=configured
+      ? msg('taxRuleConfigured')
+      : (currentLanguage==='en'?'Global engine · verification required':'Global motor · doğrulama gerekli');
     modelEl.textContent=profile.taxModel||'—';
     ratePolicyEl.textContent=profile.ratePolicy==='PRODUCT_RATE_MUST_BE_VERIFIED'
       ? msg('taxRuleProductVerify')
@@ -1137,8 +1134,970 @@ function renderQuoteSummary(){
   const avg=weightedQuoteAverage(matches);
   const latest=matches[0];
   document.querySelector('#matchedQuoteCount').textContent=String(matches.length);
-  document.querySelector('#matchedQuoteAverage').textContent=avg?'$'+money(avg,0)+' / konteyner':'—';
-  document.querySelector('#latestQuoteValue').textContent=latest?'$'+money(latest.rate,0)+' / konteyner':'—';
+  document.querySelector('#matchedQuoteAverage').textContent=avg?'
+  document.querySelector('#quoteDataStatus').textContent=currentLanguage==='en'?(matches.length>=3?'Strong data':matches.length===2?'Moderate data':matches.length===1?'Single quote':'No data'):(matches.length>=3?'Güçlü veri':matches.length===2?'Orta veri':matches.length===1?'Tek teklif':'Veri yok');
+
+  const list=document.querySelector('#quoteList');
+  list.innerHTML=matches.slice(0,6).map(q=>`
+    <div class="quote-item">
+      <div><strong>${q.provider||'Forwarder'}</strong><span>${q.date} · ${q.containerType}</span></div>
+      <b>$${money(q.rate,0)}</b>
+      <button data-id="${q.id}" type="button">Sil</button>
+    </div>`).join('') || (currentLanguage==='en'?'<p class="empty">No valid saved quote exists for this route and container type.</p>':'<p class="empty">Bu rota ve konteyner tipi için kayıtlı geçerli teklif yok.</p>');
+  list.querySelectorAll('button[data-id]').forEach(btn=>btn.addEventListener('click',async()=>{
+    const id=btn.dataset.id;
+    saveQuotes(loadQuotes().filter(q=>q.id!==id));
+    renderQuoteSummary();
+    await deleteQuoteFromD1(id);
+  }));
+  loadFreightBenchmark();
+}
+document.querySelector('#quoteDate').value=todayISO();
+document.querySelector('#saveQuote').addEventListener('click',()=>{
+  const provider=document.querySelector('#quoteProvider').value.trim();
+  const rate=positive('#quoteRate');
+  const date=document.querySelector('#quoteDate').value||todayISO();
+  const validUntil=document.querySelector('#quoteValidUntil').value||null;
+  if(!rate){alert(currentLanguage==='en'?'Enter the quote amount.':'Teklif tutarını girin.');return}
+  const quotes=loadQuotes();
+  quotes.push({
+    id:String(Date.now()),
+    provider,
+    rate,
+    date,
+    validUntil,
+    origin:document.querySelector('#origin').value,
+    destination:document.querySelector('#destination').value,
+    containerType:document.querySelector('#containerType').value,
+    transportMode:document.querySelector('#transportMode').value,
+    countryOfOrigin:document.querySelector('#originCountry').value||null,
+    exportCountry:document.querySelector('#exportCountry').value||null,
+    importCountry:document.querySelector('#importCountry').value||null,
+    transitCountries:parseTransitCountries().codes||[]
+  });
+  saveQuotes(quotes);
+  document.querySelector('#quoteRate').value='';
+  renderQuoteSummary();
+  persistQuoteToD1(quotes[quotes.length-1]).then(saved=>{
+    if(saved){saveQuotes(quotes);renderQuoteSummary()}
+  });
+});
+document.querySelector('#applyQuoteAverage').addEventListener('click',()=>{
+  const matches=matchingQuotes();
+  const avg=weightedQuoteAverage(matches);
+  if(!avg){alert(currentLanguage==='en'?'No valid quote was found for this route.':'Bu rota için geçerli teklif bulunamadı.');return}
+  const freight=[...document.querySelectorAll('.cost-row')].find(r=>/uluslararası navlun|international freight|freight/i.test(r.querySelector('.label').value));
+  if(!freight){alert(currentLanguage==='en'?'International freight row was not found.':'Uluslararası navlun satırı bulunamadı.');return}
+  freight.querySelector('.rate').value=Math.round(avg);
+  freight.querySelector('.source').value=matches.length===1?'QUOTE':'MARKET_AVG';
+  refreshCalculatedAmounts();
+});
+renderQuoteSummary();
+hydrateQuotesFromD1();
+loadCalculationHistory();
+document.querySelector('#refreshCalculationHistory').addEventListener('click',loadCalculationHistory);
+document.querySelector('#clearCalculationHistory').addEventListener('click',async()=>{
+  const ok=confirm(currentLanguage==='en'
+    ? 'Delete all calculation history for this workspace permanently?'
+    : 'Bu çalışma alanındaki tüm hesaplama geçmişi kalıcı olarak silinsin mi?');
+  if(!ok) return;
+  try{
+    await deleteCalculationHistory();
+    await loadCalculationHistory();
+  }catch{
+    alert(currentLanguage==='en'?'Calculation history could not be deleted.':'Hesaplama geçmişi silinemedi.');
+  }
+});
+
+document.querySelector('#calculate').addEventListener('click',()=>{
+  const notice=document.querySelector('#historySnapshotNotice');
+  if(notice) notice.hidden=true;
+  const s=shipment();
+  const price=positive('#price');
+  if(!s.count||!s.payload||!price){alert(currentLanguage==='en'?'Check container count, net payload and purchase price.':'Konteyner sayısı, net yük ve alış fiyatını kontrol edin.');return}
+
+  const originCountry=document.querySelector('#originCountry').value;
+  const exportCountry=document.querySelector('#exportCountry').value;
+  const importCountry=document.querySelector('#importCountry').value;
+  if(!originCountry||!exportCountry||!importCountry){
+    alert(currentLanguage==='en'
+      ? 'Select country of origin, export country and import country.'
+      : 'Menşe ülkesi, ihracat ülkesi ve ithalat ülkesini seçin.');
+    return;
+  }
+
+  const transit=parseTransitCountries();
+  if(transit.invalid?.length){
+    alert(currentLanguage==='en'
+      ? 'Invalid transit country code(s): '+transit.invalid.join(', ')
+      : 'Geçersiz transit ülke kodu/kodları: '+transit.invalid.join(', '));
+    document.querySelector('#transitCountries').focus();
+    return;
+  }
+
+  const goods=goodsTotal();
+  const costRows=[...document.querySelectorAll('.cost-row')];
+  const dutyRow=findDutyRow();
+  if(dutyRow && /doğrulanacak|to be verified/i.test(dutyRow.querySelector('.label').value)){
+    const dutyRateRaw=dutyRow.querySelector('.rate').value.trim();
+    const dutySource=dutyRow.querySelector('.source').value;
+    const manuallyVerified=dutyRateRaw!=='' && dutySource==='MANUAL';
+    if(!manuallyVerified){
+      alert(currentLanguage==='en'
+        ? 'Import duty is unresolved. Retrieve an official tariff or enter the verified rate manually and set the source to Manual data before calculating.'
+        : 'İthalat gümrük vergisi doğrulanmadı. Hesaplamadan önce resmî tarifeyi alın veya doğruladığınız oranı manuel girip kaynağı Manuel veri olarak seçin.');
+      dutyRow.querySelector('.rate').focus();
+      return;
+    }
+  }
+  const importTaxRow=findImportTaxRow();
+  if(importTaxRow && /doğrulanacak|to be verified/i.test(importTaxRow.querySelector('.label').value)){
+    const taxRateRaw=importTaxRow.querySelector('.rate').value.trim();
+    const taxSource=importTaxRow.querySelector('.source').value;
+    const manuallyVerified=taxRateRaw!=='' && ['MANUAL','OFFICIAL','LIVE'].includes(taxSource);
+    if(!manuallyVerified){
+      alert(currentLanguage==='en'
+        ? 'Import VAT/local tax is unresolved. Enter the verified destination-country rate manually and set the source to Manual data, or remove this row when the tax is not part of the landed-cost scenario.'
+        : 'İthalat KDV/yerel vergi doğrulanmadı. Hedef ülke için doğruladığınız oranı manuel girip kaynağı Manuel veri olarak seçin; bu vergi landed-cost senaryosuna dahil değilse satırı kaldırın.');
+      importTaxRow.querySelector('.rate').focus();
+      return;
+    }
+  }
+  const costs=costRows.map(row=>({amount:calculateRow(row),source:row.querySelector('.source').value}));
+  const extra=costs.reduce((sum,c)=>sum+c.amount,0);
+  const total=goods+extra;
+  const low=goods+costs.reduce((sum,c)=>sum+c.amount*(1-spreads[c.source]),0);
+  const high=goods+costs.reduce((sum,c)=>sum+c.amount*(1+spreads[c.source]),0);
+  const confidence=Math.round(((goods*.92)+costs.reduce((sum,c)=>sum+c.amount*weights[c.source],0))/total*100);
+  const estimatedAmount=costs.filter(c=>c.source==='ESTIMATE').reduce((sum,c)=>sum+c.amount,0);
+  const estimateShare=extra?estimatedAmount/extra*100:0;
+  const basis=purchaseBasis();
+
+  document.querySelector('#unitFinal').textContent='$'+money(total/basis.qty,4);
+  document.querySelector('#unitFinalLabel').textContent=basis.suffix;
+  document.querySelector('#goodsTotal').textContent='$'+money(goods,0);
+  document.querySelector('#extraTotal').textContent='$'+money(extra,0);
+  document.querySelector('#total').textContent='$'+money(total,0);
+  document.querySelector('#goodsUnit').textContent='$'+money(goods/basis.qty,4);
+  document.querySelector('#goodsUnitLabel').textContent=basis.suffix;
+  document.querySelector('#extraUnit').textContent='$'+money(extra/basis.qty,4);
+  document.querySelector('#extraUnitLabel').textContent=basis.suffix;
+  document.querySelector('#shipmentSummary').textContent=`${s.count} × ${document.querySelector('#containerType').value}`;
+  document.querySelector('#shipmentMeta').textContent=`${money(s.mt,2)} MT toplam net yük`;
+  document.querySelector('#confidence').textContent=confidence+'%';
+
+  const bufferPct=Math.max(0,Number(document.querySelector('#commercialBuffer').value)||0);
+  const safeTotal=high+(extra*(bufferPct/100));
+  document.querySelector('#safeTotal').textContent='$'+money(safeTotal,0);
+  document.querySelector('#safeUnit').textContent='$'+money(safeTotal/basis.qty,4);
+  document.querySelector('#safeUnitLabel').textContent=basis.suffix;
+  document.querySelector('#safeTotalMeta').textContent=`Üst maliyet aralığı + %${money(bufferPct,1)} ticari koruma payı`;
+
+  document.querySelector('#estimateShare').textContent=money(estimateShare,1)+'%';
+  const matches=matchingQuotes();
+  const risky=estimateShare>20||matches.length===0;
+  document.querySelector('#commercialStatus').textContent=currentLanguage==='en'?(risky?'Verification required':'Safer'):(risky?'Doğrulama gerekli':'Daha güvenli');
+  document.querySelector('#commercialStatusMeta').textContent=currentLanguage==='en'?(risky?'Verify critical items before quoting':'Better coverage of real quotes/data'):(risky?'Teklif vermeden önce kritik kalemleri doğrula':'Gerçek teklif/veri kapsamı daha iyi');
+  const riskMessage=document.querySelector('#riskMessage');
+  riskMessage.className='risk-message '+(risky?'warning':'ok');
+  riskMessage.textContent=risky
+    ? (currentLanguage==='en'
+      ? 'Estimated-data share or verified freight coverage is insufficient. Verify freight and critical customs items before issuing a commercial quote.'
+      : 'Bu hesapta tahmini veri oranı veya doğrulanmış navlun verisi yetersiz. Ticari fiyat vermeden önce navlun ve kritik gümrük kalemlerini doğrulayın.')
+    : (currentLanguage==='en'
+      ? 'Verified data coverage is stronger in this scenario. Still check quote validity dates.'
+      : 'Bu senaryoda doğrulanmış veri kapsamı daha güçlü. Yine de teklif geçerlilik tarihlerini kontrol edin.');
+
+  document.querySelector('#breakdownText').innerHTML=`
+    <span>Ürün</span><strong>$${money(goods,0)}</strong>
+    <span>+</span><span>Ek maliyetler</span><strong>$${money(extra,0)}</strong>
+    <span>=</span><span>Nihai toplam</span><strong>$${money(total,0)}</strong>`;
+  document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
+  document.querySelector('#routeText').textContent=
+    `${document.querySelector('#productName').value} · ${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${s.count} × ${document.querySelector('#containerType').value}`;
+  const snapshotCostRows=costRows.map(row=>({
+    label:row.querySelector('.label').value,
+    method:row.querySelector('.method').value,
+    rate:Number(row.querySelector('.rate').value)||0,
+    source:row.querySelector('.source').value
+  }));
+
+  persistCalculationSnapshot({
+    product:{name:document.querySelector('#productName').value,hsCode:document.querySelector('#hsCode').value},
+    route:{
+      origin:document.querySelector('#origin').value,
+      destination:document.querySelector('#destination').value,
+      originCountry:document.querySelector('#originCountry').value,
+      originCountryIso2:selectedCountryIso2('#originCountry'),
+      exportCountry:document.querySelector('#exportCountry').value,
+      exportCountryIso2:selectedCountryIso2('#exportCountry'),
+      transitCountries:transit.codes,
+      importCountry:document.querySelector('#importCountry').value,
+      importCountryIso2:selectedCountryIso2('#importCountry'),
+      incoterm:document.querySelector('#incoterm').value
+    },
+    routeProfile:{
+      grossWeightKg:Number(document.querySelector('#grossWeightKg').value)||0,
+      heightCm:Number(document.querySelector('#heightCm').value)||0,
+      commercialBufferPct:bufferPct
+    },
+    shipment:{
+      transportMode:document.querySelector('#transportMode').value,
+      containerType:document.querySelector('#containerType').value,
+      containerCount:s.count,
+      payloadPerContainer:s.payload,
+      netMt:s.mt
+    },
+    purchase:{price:Number(document.querySelector('#price').value)||0,priceUnit:document.querySelector('#priceUnit').value},
+    costRows:snapshotCostRows
+  },{
+    currency:'USD',goodsTotal:goods,extraTotal:extra,total,range:{low,high},confidencePct:confidence,
+    estimateSharePct:estimateShare,commercialBufferPct:bufferPct,safeTotal
+  }).then(saved=>{if(saved) loadCalculationHistory()});
+
+  document.querySelector('#results').hidden=false;
+});
+
+
+let hsSearchTimer=null;
+let hsSearchSeq=0;
+
+function setHsStatus(text,state=''){
+  const el=document.querySelector('#hsStatus');
+  el.textContent=text;
+  el.dataset.state=state;
+}
+
+function hideHsSuggestions(){
+  const box=document.querySelector('#hsSuggestions');
+  box.hidden=true;
+  box.replaceChildren();
+}
+
+function renderHsSuggestions(matches){
+  const box=document.querySelector('#hsSuggestions');
+  box.replaceChildren();
+
+  if(!matches.length){
+    const empty=document.createElement('div');
+    empty.className='hs-empty';
+    empty.textContent=msg('hsNoMatchLong');
+    box.appendChild(empty);
+    box.hidden=false;
+    return;
+  }
+
+  for(const match of matches){
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='hs-suggestion';
+    button.dataset.code=match.hsCode;
+
+    const top=document.createElement('span');
+    top.className='hs-suggestion-top';
+
+    const code=document.createElement('strong');
+    code.textContent=match.hsCode;
+
+    const badge=document.createElement('em');
+    badge.textContent=match.matchType==='CURATED_ALIAS'?msg('productMatch'):'HS 2022';
+
+    top.append(code,badge);
+
+    const desc=document.createElement('span');
+    desc.className='hs-suggestion-desc';
+    const localizedAlias=match.localizedLabels?.[currentLanguage]||match.aliasLabel;
+    desc.textContent=localizedAlias
+      ? `${localizedAlias} — ${match.description}`
+      : match.description;
+
+    button.append(top,desc);
+    button.addEventListener('click',async()=>{
+      document.querySelector('#hsCode').value=match.hsCode;
+      hideHsSuggestions();
+      await validateHsCode(match.hsCode);
+    });
+
+    box.appendChild(button);
+  }
+
+  box.hidden=false;
+}
+
+async function searchHsCandidates(query){
+  const q=String(query||'').trim();
+  if(q.length<2){
+    hideHsSuggestions();
+    setHsStatus(msg('hsGlobal'));
+    return;
+  }
+
+  const seq=++hsSearchSeq;
+  setHsStatus(msg('hsSearching'),'loading');
+
+  try{
+    const res=await fetch('/api/hs?q='+encodeURIComponent(q)+'&limit=8',{cache:'no-store'});
+    const data=await res.json();
+    if(seq!==hsSearchSeq) return;
+    if(!res.ok) throw new Error(data?.message||data?.error||'HS araması başarısız');
+
+    renderHsSuggestions(data.matches||[]);
+    setHsStatus(
+      data.matches?.length
+        ? `${data.matches.length} HS6 adayı · HS2022`
+        : msg('hsNoMatch'),
+      data.matches?.length?'candidate':'warning'
+    );
+  }catch(error){
+    if(seq!==hsSearchSeq) return;
+    hideHsSuggestions();
+    setHsStatus(msg('hsDataError'),'error');
+  }
+}
+
+async function validateHsCode(code){
+  if(!/^\d{6}$/.test(code)){
+    setHsStatus(msg('hsSixDigits'),'warning');
+    return null;
+  }
+
+  setHsStatus(msg('hsValidating'),'loading');
+  try{
+    const res=await fetch('/api/hs?code='+encodeURIComponent(code),{cache:'no-store'});
+    const data=await res.json();
+    if(!res.ok||!data.match) throw new Error();
+    setHsStatus(currentLanguage==='en'?`${data.match.hsCode} validated · ${data.hsRevision||'HS2022'}`:`${data.match.hsCode} doğrulandı · ${data.hsRevision||'HS2022'}`,'verified');
+    loadTariff();
+    return data.match;
+  }catch{
+    setHsStatus(msg('hsInvalid'),'error');
+    return null;
+  }
+}
+
+const hsInput=document.querySelector('#hsCode');
+hsInput.addEventListener('input',()=>{
+  clearTimeout(hsSearchTimer);
+  const value=hsInput.value.trim();
+  hsSearchTimer=setTimeout(()=>searchHsCandidates(value),250);
+});
+hsInput.addEventListener('keydown',event=>{
+  if(event.key==='Escape') hideHsSuggestions();
+});
+hsInput.addEventListener('blur',()=>{
+  setTimeout(()=>{
+    if(/^\d{6}$/.test(hsInput.value.trim())) validateHsCode(hsInput.value.trim());
+  },150);
+});
+
+document.querySelector('#searchHsFromProduct').addEventListener('click',()=>{
+  const product=document.querySelector('#productName').value.trim();
+  if(product.length<2){
+    setHsStatus(msg('productFirst'),'warning');
+    return;
+  }
+  searchHsCandidates(product);
+});
+
+document.addEventListener('click',event=>{
+  if(!event.target.closest('.hs-field')) hideHsSuggestions();
+});
+
+async function loadFx(){
+  const button=document.querySelector('#refreshFx');
+  const rateEl=document.querySelector('#fxRate');
+  const metaEl=document.querySelector('#fxMeta');
+  const base=document.querySelector('#fxBase').value.trim().toUpperCase();
+  const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
+  if(!/^[A-Z]{3}$/.test(base)||!/^[A-Z]{3}$/.test(quote)){
+    rateEl.textContent=currentLanguage==='en'?'Invalid currency':'Geçersiz para birimi';metaEl.textContent=currentLanguage==='en'?'Example: USD, EUR, TRY':'Örnek: USD, EUR, TRY';return;
+  }
+  button.disabled=true;button.textContent=currentLanguage==='en'?'Loading…':'Yükleniyor…';
+  try{
+    const response=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`,{cache:'no-store'});
+    if(!response.ok) throw new Error();
+    const data=await response.json();
+    rateEl.textContent=`1 ${base} = ${money(Number(data.rate),4)} ${quote}`;
+    const dateText=data.date?new Intl.DateTimeFormat(currentLanguage==='en'?'en-US':'tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')):(currentLanguage==='en'?'Current':'Güncel');
+    metaEl.textContent=`${dateText} · ${data.sourceName||'Referans kur'}`;
+  }catch{rateEl.textContent=currentLanguage==='en'?'Exchange-rate data unavailable':'Kur verisi alınamadı';metaEl.textContent=currentLanguage==='en'?'The API connection is not active yet or deployment is incomplete.':'API bağlantısı henüz aktif değil veya deploy tamamlanmadı.'}
+  finally{button.disabled=false;button.textContent=currentLanguage==='en'?'Refresh rate':'Kuru yenile'}
+}
+const languageSelect=document.querySelector('#languageSelect');
+languageSelect.value=currentLanguage;
+languageSelect.addEventListener('change',()=>applyLanguage(languageSelect.value));
+translateStaticDocument();
+updateCostLanguage();
+updateCurrencyLanguage();
+
+document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
+document.querySelector('#refreshTaxRule').addEventListener('click',loadCountryTaxProfile);
+document.querySelector('#originCountry').addEventListener('change',loadTariff);
+document.querySelector('#exportCountry').addEventListener('change',()=>{});
+document.querySelector('#importCountry').addEventListener('change',()=>{loadTariff();loadCountryTaxProfile()});
+
+document.querySelector('#refreshFx').addEventListener('click',loadFx);
+['fxBase','fxQuote'].forEach(id=>document.querySelector('#'+id).addEventListener('change',loadFx));
+loadFx();
+
+async function calculateRoute(){
+  const btn=document.querySelector('#calculateRoute');
+  btn.disabled=true;btn.textContent=currentLanguage==='en'?'Calculating…':'Hesaplanıyor…';document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Loading':'Yükleniyor';
+  try{
+    const params=new URLSearchParams({
+      origin:document.querySelector('#origin').value.trim(),
+      destination:document.querySelector('#destination').value.trim(),
+      grossWeightKg:String(Number(document.querySelector('#grossWeightKg').value)||40000),
+      heightCm:String(Number(document.querySelector('#heightCm').value)||400)
+    });
+    const res=await fetch('/api/route?'+params.toString(),{cache:'no-store'});
+    const data=await res.json();
+    if(!res.ok){
+      if(data.status==='NOT_CONFIGURED'){
+        document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'API key required':'API anahtarı gerekli';
+        document.querySelector('#routeDistance').textContent='—';
+        document.querySelector('#routeDuration').textContent='—';
+        document.querySelector('#routeTolls').textContent='—';
+        return;
+      }
+      throw new Error();
+    }
+    lastRouteData=data;
+    document.querySelector('#routeDistance').textContent=money(data.distanceKm,0)+' km';
+    document.querySelector('#routeDuration').textContent=money(data.durationHours,1)+' saat';
+    const tollEntries=Object.entries(data.tollTotals||{});
+    document.querySelector('#routeTolls').textContent=tollEntries.length
+      ? tollEntries.map(([c,v])=>money(v,2)+' '+c).join(' + ')
+      : (data.tollDataAvailable ? (currentLanguage==='en'?'No toll / no data':'Yol ücreti yok / veri yok') : (currentLanguage==='en'?'Unavailable from free source':'Ücretsiz kaynakta yok'));
+    document.querySelector('#routeStatus').textContent=currentLanguage==='en'?(data.truckProfileApplied?'Verified truck route':'Free route estimate'):(data.truckProfileApplied?'Doğrulanmış kamyon rotası':'Ücretsiz rota tahmini');
+    loadFreightBenchmark();
+  }catch{document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Route unavailable':'Rota alınamadı'}
+  finally{btn.disabled=false;btn.textContent=currentLanguage==='en'?'Calculate route':'Rotayı hesapla'}
+}
+document.querySelector('#calculateRoute').addEventListener('click',calculateRoute);
+document.querySelector('#refreshFreightBenchmark').addEventListener('click',loadFreightBenchmark);
+document.querySelector('#commercialBuffer').addEventListener('input',()=>loadFreightBenchmark());
+
+
+function buildPrintReport(){
+  const s=shipment();
+  const get=id=>document.querySelector(id)?.textContent?.trim()||'—';
+  document.querySelector('#printDate').textContent=new Intl.DateTimeFormat(currentLanguage==='en'?'en-US':'tr-TR',{dateStyle:'long',timeStyle:'short'}).format(new Date());
+  document.querySelector('#printProduct').textContent=document.querySelector('#productName').value||'—';
+  document.querySelector('#printHs').textContent=document.querySelector('#hsCode').value||'—';
+  document.querySelector('#printOriginCountry').textContent=selectedCountryName('#originCountry');
+  document.querySelector('#printIncoterm').textContent=document.querySelector('#incoterm').value||'—';
+  document.querySelector('#printOrigin').textContent=document.querySelector('#origin').value||'—';
+  document.querySelector('#printDestination').textContent=document.querySelector('#destination').value||'—';
+  document.querySelector('#printContainer').textContent=`${s.count} × ${document.querySelector('#containerType').value}`;
+  document.querySelector('#printQuantity').textContent=`${money(s.mt,2)} MT`;
+  document.querySelector('#printUnitFinal').textContent=get('#unitFinal')+' '+get('#unitFinalLabel');
+  document.querySelector('#printTotal').textContent=get('#total');
+  document.querySelector('#printSafeTotal').textContent=get('#safeTotal');
+  document.querySelector('#printConfidence').textContent=get('#confidence');
+  document.querySelector('#printRange').textContent=get('#range');
+  document.querySelector('#printCommercialStatus').textContent=get('#commercialStatus');
+
+  document.querySelector('#printCostRows').innerHTML=[...document.querySelectorAll('.cost-row')].map(row=>{
+    const label=row.querySelector('.label').value||'—';
+    const method=row.querySelector('.method').selectedOptions[0]?.textContent||'—';
+    const source=row.querySelector('.source').selectedOptions[0]?.textContent||'—';
+    const amount=row.querySelector('.computed').textContent||'—';
+    return `<tr><td>${label}</td><td>${method}</td><td>${source}</td><td>${amount}</td></tr>`;
+  }).join('');
+}
+
+document.querySelector('#printReport').addEventListener('click',()=>{
+  if(document.querySelector('#results').hidden){
+    alert(currentLanguage==='en'?'Calculate the cost first.':'Önce maliyeti hesaplayın.');
+    return;
+  }
+  buildPrintReport();
+  window.print();
+});
++money(avg,0)+' / '+(currentLanguage==='en'?'equipment':'ekipman'):'—';
+  document.querySelector('#latestQuoteValue').textContent=latest?'
+  document.querySelector('#quoteDataStatus').textContent=currentLanguage==='en'?(matches.length>=3?'Strong data':matches.length===2?'Moderate data':matches.length===1?'Single quote':'No data'):(matches.length>=3?'Güçlü veri':matches.length===2?'Orta veri':matches.length===1?'Tek teklif':'Veri yok');
+
+  const list=document.querySelector('#quoteList');
+  list.innerHTML=matches.slice(0,6).map(q=>`
+    <div class="quote-item">
+      <div><strong>${q.provider||'Forwarder'}</strong><span>${q.date} · ${q.containerType}</span></div>
+      <b>$${money(q.rate,0)}</b>
+      <button data-id="${q.id}" type="button">Sil</button>
+    </div>`).join('') || (currentLanguage==='en'?'<p class="empty">No valid saved quote exists for this route and container type.</p>':'<p class="empty">Bu rota ve konteyner tipi için kayıtlı geçerli teklif yok.</p>');
+  list.querySelectorAll('button[data-id]').forEach(btn=>btn.addEventListener('click',async()=>{
+    const id=btn.dataset.id;
+    saveQuotes(loadQuotes().filter(q=>q.id!==id));
+    renderQuoteSummary();
+    await deleteQuoteFromD1(id);
+  }));
+  loadFreightBenchmark();
+}
+document.querySelector('#quoteDate').value=todayISO();
+document.querySelector('#saveQuote').addEventListener('click',()=>{
+  const provider=document.querySelector('#quoteProvider').value.trim();
+  const rate=positive('#quoteRate');
+  const date=document.querySelector('#quoteDate').value||todayISO();
+  const validUntil=document.querySelector('#quoteValidUntil').value||null;
+  if(!rate){alert(currentLanguage==='en'?'Enter the quote amount.':'Teklif tutarını girin.');return}
+  const quotes=loadQuotes();
+  quotes.push({
+    id:String(Date.now()),
+    provider,
+    rate,
+    date,
+    validUntil,
+    origin:document.querySelector('#origin').value,
+    destination:document.querySelector('#destination').value,
+    containerType:document.querySelector('#containerType').value,
+    transportMode:document.querySelector('#transportMode').value,
+    countryOfOrigin:document.querySelector('#originCountry').value||null,
+    exportCountry:document.querySelector('#exportCountry').value||null,
+    importCountry:document.querySelector('#importCountry').value||null,
+    transitCountries:parseTransitCountries().codes||[]
+  });
+  saveQuotes(quotes);
+  document.querySelector('#quoteRate').value='';
+  renderQuoteSummary();
+  persistQuoteToD1(quotes[quotes.length-1]).then(saved=>{
+    if(saved){saveQuotes(quotes);renderQuoteSummary()}
+  });
+});
+document.querySelector('#applyQuoteAverage').addEventListener('click',()=>{
+  const matches=matchingQuotes();
+  const avg=weightedQuoteAverage(matches);
+  if(!avg){alert(currentLanguage==='en'?'No valid quote was found for this route.':'Bu rota için geçerli teklif bulunamadı.');return}
+  const freight=[...document.querySelectorAll('.cost-row')].find(r=>/uluslararası navlun|international freight|freight/i.test(r.querySelector('.label').value));
+  if(!freight){alert(currentLanguage==='en'?'International freight row was not found.':'Uluslararası navlun satırı bulunamadı.');return}
+  freight.querySelector('.rate').value=Math.round(avg);
+  freight.querySelector('.source').value=matches.length===1?'QUOTE':'MARKET_AVG';
+  refreshCalculatedAmounts();
+});
+renderQuoteSummary();
+hydrateQuotesFromD1();
+loadCalculationHistory();
+document.querySelector('#refreshCalculationHistory').addEventListener('click',loadCalculationHistory);
+document.querySelector('#clearCalculationHistory').addEventListener('click',async()=>{
+  const ok=confirm(currentLanguage==='en'
+    ? 'Delete all calculation history for this workspace permanently?'
+    : 'Bu çalışma alanındaki tüm hesaplama geçmişi kalıcı olarak silinsin mi?');
+  if(!ok) return;
+  try{
+    await deleteCalculationHistory();
+    await loadCalculationHistory();
+  }catch{
+    alert(currentLanguage==='en'?'Calculation history could not be deleted.':'Hesaplama geçmişi silinemedi.');
+  }
+});
+
+document.querySelector('#calculate').addEventListener('click',()=>{
+  const notice=document.querySelector('#historySnapshotNotice');
+  if(notice) notice.hidden=true;
+  const s=shipment();
+  const price=positive('#price');
+  if(!s.count||!s.payload||!price){alert(currentLanguage==='en'?'Check container count, net payload and purchase price.':'Konteyner sayısı, net yük ve alış fiyatını kontrol edin.');return}
+
+  const originCountry=document.querySelector('#originCountry').value;
+  const exportCountry=document.querySelector('#exportCountry').value;
+  const importCountry=document.querySelector('#importCountry').value;
+  if(!originCountry||!exportCountry||!importCountry){
+    alert(currentLanguage==='en'
+      ? 'Select country of origin, export country and import country.'
+      : 'Menşe ülkesi, ihracat ülkesi ve ithalat ülkesini seçin.');
+    return;
+  }
+
+  const transit=parseTransitCountries();
+  if(transit.invalid?.length){
+    alert(currentLanguage==='en'
+      ? 'Invalid transit country code(s): '+transit.invalid.join(', ')
+      : 'Geçersiz transit ülke kodu/kodları: '+transit.invalid.join(', '));
+    document.querySelector('#transitCountries').focus();
+    return;
+  }
+
+  const goods=goodsTotal();
+  const costRows=[...document.querySelectorAll('.cost-row')];
+  const dutyRow=findDutyRow();
+  if(dutyRow && /doğrulanacak|to be verified/i.test(dutyRow.querySelector('.label').value)){
+    const dutyRateRaw=dutyRow.querySelector('.rate').value.trim();
+    const dutySource=dutyRow.querySelector('.source').value;
+    const manuallyVerified=dutyRateRaw!=='' && dutySource==='MANUAL';
+    if(!manuallyVerified){
+      alert(currentLanguage==='en'
+        ? 'Import duty is unresolved. Retrieve an official tariff or enter the verified rate manually and set the source to Manual data before calculating.'
+        : 'İthalat gümrük vergisi doğrulanmadı. Hesaplamadan önce resmî tarifeyi alın veya doğruladığınız oranı manuel girip kaynağı Manuel veri olarak seçin.');
+      dutyRow.querySelector('.rate').focus();
+      return;
+    }
+  }
+  const importTaxRow=findImportTaxRow();
+  if(importTaxRow && /doğrulanacak|to be verified/i.test(importTaxRow.querySelector('.label').value)){
+    const taxRateRaw=importTaxRow.querySelector('.rate').value.trim();
+    const taxSource=importTaxRow.querySelector('.source').value;
+    const manuallyVerified=taxRateRaw!=='' && ['MANUAL','OFFICIAL','LIVE'].includes(taxSource);
+    if(!manuallyVerified){
+      alert(currentLanguage==='en'
+        ? 'Import VAT/local tax is unresolved. Enter the verified destination-country rate manually and set the source to Manual data, or remove this row when the tax is not part of the landed-cost scenario.'
+        : 'İthalat KDV/yerel vergi doğrulanmadı. Hedef ülke için doğruladığınız oranı manuel girip kaynağı Manuel veri olarak seçin; bu vergi landed-cost senaryosuna dahil değilse satırı kaldırın.');
+      importTaxRow.querySelector('.rate').focus();
+      return;
+    }
+  }
+  const costs=costRows.map(row=>({amount:calculateRow(row),source:row.querySelector('.source').value}));
+  const extra=costs.reduce((sum,c)=>sum+c.amount,0);
+  const total=goods+extra;
+  const low=goods+costs.reduce((sum,c)=>sum+c.amount*(1-spreads[c.source]),0);
+  const high=goods+costs.reduce((sum,c)=>sum+c.amount*(1+spreads[c.source]),0);
+  const confidence=Math.round(((goods*.92)+costs.reduce((sum,c)=>sum+c.amount*weights[c.source],0))/total*100);
+  const estimatedAmount=costs.filter(c=>c.source==='ESTIMATE').reduce((sum,c)=>sum+c.amount,0);
+  const estimateShare=extra?estimatedAmount/extra*100:0;
+  const basis=purchaseBasis();
+
+  document.querySelector('#unitFinal').textContent='$'+money(total/basis.qty,4);
+  document.querySelector('#unitFinalLabel').textContent=basis.suffix;
+  document.querySelector('#goodsTotal').textContent='$'+money(goods,0);
+  document.querySelector('#extraTotal').textContent='$'+money(extra,0);
+  document.querySelector('#total').textContent='$'+money(total,0);
+  document.querySelector('#goodsUnit').textContent='$'+money(goods/basis.qty,4);
+  document.querySelector('#goodsUnitLabel').textContent=basis.suffix;
+  document.querySelector('#extraUnit').textContent='$'+money(extra/basis.qty,4);
+  document.querySelector('#extraUnitLabel').textContent=basis.suffix;
+  document.querySelector('#shipmentSummary').textContent=`${s.count} × ${document.querySelector('#containerType').value}`;
+  document.querySelector('#shipmentMeta').textContent=`${money(s.mt,2)} MT toplam net yük`;
+  document.querySelector('#confidence').textContent=confidence+'%';
+
+  const bufferPct=Math.max(0,Number(document.querySelector('#commercialBuffer').value)||0);
+  const safeTotal=high+(extra*(bufferPct/100));
+  document.querySelector('#safeTotal').textContent='$'+money(safeTotal,0);
+  document.querySelector('#safeUnit').textContent='$'+money(safeTotal/basis.qty,4);
+  document.querySelector('#safeUnitLabel').textContent=basis.suffix;
+  document.querySelector('#safeTotalMeta').textContent=`Üst maliyet aralığı + %${money(bufferPct,1)} ticari koruma payı`;
+
+  document.querySelector('#estimateShare').textContent=money(estimateShare,1)+'%';
+  const matches=matchingQuotes();
+  const risky=estimateShare>20||matches.length===0;
+  document.querySelector('#commercialStatus').textContent=currentLanguage==='en'?(risky?'Verification required':'Safer'):(risky?'Doğrulama gerekli':'Daha güvenli');
+  document.querySelector('#commercialStatusMeta').textContent=currentLanguage==='en'?(risky?'Verify critical items before quoting':'Better coverage of real quotes/data'):(risky?'Teklif vermeden önce kritik kalemleri doğrula':'Gerçek teklif/veri kapsamı daha iyi');
+  const riskMessage=document.querySelector('#riskMessage');
+  riskMessage.className='risk-message '+(risky?'warning':'ok');
+  riskMessage.textContent=risky
+    ? (currentLanguage==='en'
+      ? 'Estimated-data share or verified freight coverage is insufficient. Verify freight and critical customs items before issuing a commercial quote.'
+      : 'Bu hesapta tahmini veri oranı veya doğrulanmış navlun verisi yetersiz. Ticari fiyat vermeden önce navlun ve kritik gümrük kalemlerini doğrulayın.')
+    : (currentLanguage==='en'
+      ? 'Verified data coverage is stronger in this scenario. Still check quote validity dates.'
+      : 'Bu senaryoda doğrulanmış veri kapsamı daha güçlü. Yine de teklif geçerlilik tarihlerini kontrol edin.');
+
+  document.querySelector('#breakdownText').innerHTML=`
+    <span>Ürün</span><strong>$${money(goods,0)}</strong>
+    <span>+</span><span>Ek maliyetler</span><strong>$${money(extra,0)}</strong>
+    <span>=</span><span>Nihai toplam</span><strong>$${money(total,0)}</strong>`;
+  document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
+  document.querySelector('#routeText').textContent=
+    `${document.querySelector('#productName').value} · ${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${s.count} × ${document.querySelector('#containerType').value}`;
+  const snapshotCostRows=costRows.map(row=>({
+    label:row.querySelector('.label').value,
+    method:row.querySelector('.method').value,
+    rate:Number(row.querySelector('.rate').value)||0,
+    source:row.querySelector('.source').value
+  }));
+
+  persistCalculationSnapshot({
+    product:{name:document.querySelector('#productName').value,hsCode:document.querySelector('#hsCode').value},
+    route:{
+      origin:document.querySelector('#origin').value,
+      destination:document.querySelector('#destination').value,
+      originCountry:document.querySelector('#originCountry').value,
+      originCountryIso2:selectedCountryIso2('#originCountry'),
+      exportCountry:document.querySelector('#exportCountry').value,
+      exportCountryIso2:selectedCountryIso2('#exportCountry'),
+      transitCountries:transit.codes,
+      importCountry:document.querySelector('#importCountry').value,
+      importCountryIso2:selectedCountryIso2('#importCountry'),
+      incoterm:document.querySelector('#incoterm').value
+    },
+    routeProfile:{
+      grossWeightKg:Number(document.querySelector('#grossWeightKg').value)||0,
+      heightCm:Number(document.querySelector('#heightCm').value)||0,
+      commercialBufferPct:bufferPct
+    },
+    shipment:{
+      transportMode:document.querySelector('#transportMode').value,
+      containerType:document.querySelector('#containerType').value,
+      containerCount:s.count,
+      payloadPerContainer:s.payload,
+      netMt:s.mt
+    },
+    purchase:{price:Number(document.querySelector('#price').value)||0,priceUnit:document.querySelector('#priceUnit').value},
+    costRows:snapshotCostRows
+  },{
+    currency:'USD',goodsTotal:goods,extraTotal:extra,total,range:{low,high},confidencePct:confidence,
+    estimateSharePct:estimateShare,commercialBufferPct:bufferPct,safeTotal
+  }).then(saved=>{if(saved) loadCalculationHistory()});
+
+  document.querySelector('#results').hidden=false;
+});
+
+
+let hsSearchTimer=null;
+let hsSearchSeq=0;
+
+function setHsStatus(text,state=''){
+  const el=document.querySelector('#hsStatus');
+  el.textContent=text;
+  el.dataset.state=state;
+}
+
+function hideHsSuggestions(){
+  const box=document.querySelector('#hsSuggestions');
+  box.hidden=true;
+  box.replaceChildren();
+}
+
+function renderHsSuggestions(matches){
+  const box=document.querySelector('#hsSuggestions');
+  box.replaceChildren();
+
+  if(!matches.length){
+    const empty=document.createElement('div');
+    empty.className='hs-empty';
+    empty.textContent=msg('hsNoMatchLong');
+    box.appendChild(empty);
+    box.hidden=false;
+    return;
+  }
+
+  for(const match of matches){
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='hs-suggestion';
+    button.dataset.code=match.hsCode;
+
+    const top=document.createElement('span');
+    top.className='hs-suggestion-top';
+
+    const code=document.createElement('strong');
+    code.textContent=match.hsCode;
+
+    const badge=document.createElement('em');
+    badge.textContent=match.matchType==='CURATED_ALIAS'?msg('productMatch'):'HS 2022';
+
+    top.append(code,badge);
+
+    const desc=document.createElement('span');
+    desc.className='hs-suggestion-desc';
+    const localizedAlias=match.localizedLabels?.[currentLanguage]||match.aliasLabel;
+    desc.textContent=localizedAlias
+      ? `${localizedAlias} — ${match.description}`
+      : match.description;
+
+    button.append(top,desc);
+    button.addEventListener('click',async()=>{
+      document.querySelector('#hsCode').value=match.hsCode;
+      hideHsSuggestions();
+      await validateHsCode(match.hsCode);
+    });
+
+    box.appendChild(button);
+  }
+
+  box.hidden=false;
+}
+
+async function searchHsCandidates(query){
+  const q=String(query||'').trim();
+  if(q.length<2){
+    hideHsSuggestions();
+    setHsStatus(msg('hsGlobal'));
+    return;
+  }
+
+  const seq=++hsSearchSeq;
+  setHsStatus(msg('hsSearching'),'loading');
+
+  try{
+    const res=await fetch('/api/hs?q='+encodeURIComponent(q)+'&limit=8',{cache:'no-store'});
+    const data=await res.json();
+    if(seq!==hsSearchSeq) return;
+    if(!res.ok) throw new Error(data?.message||data?.error||'HS araması başarısız');
+
+    renderHsSuggestions(data.matches||[]);
+    setHsStatus(
+      data.matches?.length
+        ? `${data.matches.length} HS6 adayı · HS2022`
+        : msg('hsNoMatch'),
+      data.matches?.length?'candidate':'warning'
+    );
+  }catch(error){
+    if(seq!==hsSearchSeq) return;
+    hideHsSuggestions();
+    setHsStatus(msg('hsDataError'),'error');
+  }
+}
+
+async function validateHsCode(code){
+  if(!/^\d{6}$/.test(code)){
+    setHsStatus(msg('hsSixDigits'),'warning');
+    return null;
+  }
+
+  setHsStatus(msg('hsValidating'),'loading');
+  try{
+    const res=await fetch('/api/hs?code='+encodeURIComponent(code),{cache:'no-store'});
+    const data=await res.json();
+    if(!res.ok||!data.match) throw new Error();
+    setHsStatus(currentLanguage==='en'?`${data.match.hsCode} validated · ${data.hsRevision||'HS2022'}`:`${data.match.hsCode} doğrulandı · ${data.hsRevision||'HS2022'}`,'verified');
+    loadTariff();
+    return data.match;
+  }catch{
+    setHsStatus(msg('hsInvalid'),'error');
+    return null;
+  }
+}
+
+const hsInput=document.querySelector('#hsCode');
+hsInput.addEventListener('input',()=>{
+  clearTimeout(hsSearchTimer);
+  const value=hsInput.value.trim();
+  hsSearchTimer=setTimeout(()=>searchHsCandidates(value),250);
+});
+hsInput.addEventListener('keydown',event=>{
+  if(event.key==='Escape') hideHsSuggestions();
+});
+hsInput.addEventListener('blur',()=>{
+  setTimeout(()=>{
+    if(/^\d{6}$/.test(hsInput.value.trim())) validateHsCode(hsInput.value.trim());
+  },150);
+});
+
+document.querySelector('#searchHsFromProduct').addEventListener('click',()=>{
+  const product=document.querySelector('#productName').value.trim();
+  if(product.length<2){
+    setHsStatus(msg('productFirst'),'warning');
+    return;
+  }
+  searchHsCandidates(product);
+});
+
+document.addEventListener('click',event=>{
+  if(!event.target.closest('.hs-field')) hideHsSuggestions();
+});
+
+async function loadFx(){
+  const button=document.querySelector('#refreshFx');
+  const rateEl=document.querySelector('#fxRate');
+  const metaEl=document.querySelector('#fxMeta');
+  const base=document.querySelector('#fxBase').value.trim().toUpperCase();
+  const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
+  if(!/^[A-Z]{3}$/.test(base)||!/^[A-Z]{3}$/.test(quote)){
+    rateEl.textContent=currentLanguage==='en'?'Invalid currency':'Geçersiz para birimi';metaEl.textContent=currentLanguage==='en'?'Example: USD, EUR, TRY':'Örnek: USD, EUR, TRY';return;
+  }
+  button.disabled=true;button.textContent=currentLanguage==='en'?'Loading…':'Yükleniyor…';
+  try{
+    const response=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`,{cache:'no-store'});
+    if(!response.ok) throw new Error();
+    const data=await response.json();
+    rateEl.textContent=`1 ${base} = ${money(Number(data.rate),4)} ${quote}`;
+    const dateText=data.date?new Intl.DateTimeFormat(currentLanguage==='en'?'en-US':'tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')):(currentLanguage==='en'?'Current':'Güncel');
+    metaEl.textContent=`${dateText} · ${data.sourceName||'Referans kur'}`;
+  }catch{rateEl.textContent=currentLanguage==='en'?'Exchange-rate data unavailable':'Kur verisi alınamadı';metaEl.textContent=currentLanguage==='en'?'The API connection is not active yet or deployment is incomplete.':'API bağlantısı henüz aktif değil veya deploy tamamlanmadı.'}
+  finally{button.disabled=false;button.textContent=currentLanguage==='en'?'Refresh rate':'Kuru yenile'}
+}
+const languageSelect=document.querySelector('#languageSelect');
+languageSelect.value=currentLanguage;
+languageSelect.addEventListener('change',()=>applyLanguage(languageSelect.value));
+translateStaticDocument();
+updateCostLanguage();
+updateCurrencyLanguage();
+
+document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
+document.querySelector('#refreshTaxRule').addEventListener('click',loadCountryTaxProfile);
+document.querySelector('#originCountry').addEventListener('change',loadTariff);
+document.querySelector('#exportCountry').addEventListener('change',()=>{});
+document.querySelector('#importCountry').addEventListener('change',()=>{loadTariff();loadCountryTaxProfile()});
+
+document.querySelector('#refreshFx').addEventListener('click',loadFx);
+['fxBase','fxQuote'].forEach(id=>document.querySelector('#'+id).addEventListener('change',loadFx));
+loadFx();
+
+async function calculateRoute(){
+  const btn=document.querySelector('#calculateRoute');
+  btn.disabled=true;btn.textContent=currentLanguage==='en'?'Calculating…':'Hesaplanıyor…';document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Loading':'Yükleniyor';
+  try{
+    const params=new URLSearchParams({
+      origin:document.querySelector('#origin').value.trim(),
+      destination:document.querySelector('#destination').value.trim(),
+      grossWeightKg:String(Number(document.querySelector('#grossWeightKg').value)||40000),
+      heightCm:String(Number(document.querySelector('#heightCm').value)||400)
+    });
+    const res=await fetch('/api/route?'+params.toString(),{cache:'no-store'});
+    const data=await res.json();
+    if(!res.ok){
+      if(data.status==='NOT_CONFIGURED'){
+        document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'API key required':'API anahtarı gerekli';
+        document.querySelector('#routeDistance').textContent='—';
+        document.querySelector('#routeDuration').textContent='—';
+        document.querySelector('#routeTolls').textContent='—';
+        return;
+      }
+      throw new Error();
+    }
+    lastRouteData=data;
+    document.querySelector('#routeDistance').textContent=money(data.distanceKm,0)+' km';
+    document.querySelector('#routeDuration').textContent=money(data.durationHours,1)+' saat';
+    const tollEntries=Object.entries(data.tollTotals||{});
+    document.querySelector('#routeTolls').textContent=tollEntries.length
+      ? tollEntries.map(([c,v])=>money(v,2)+' '+c).join(' + ')
+      : (data.tollDataAvailable ? (currentLanguage==='en'?'No toll / no data':'Yol ücreti yok / veri yok') : (currentLanguage==='en'?'Unavailable from free source':'Ücretsiz kaynakta yok'));
+    document.querySelector('#routeStatus').textContent=currentLanguage==='en'?(data.truckProfileApplied?'Verified truck route':'Free route estimate'):(data.truckProfileApplied?'Doğrulanmış kamyon rotası':'Ücretsiz rota tahmini');
+    loadFreightBenchmark();
+  }catch{document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Route unavailable':'Rota alınamadı'}
+  finally{btn.disabled=false;btn.textContent=currentLanguage==='en'?'Calculate route':'Rotayı hesapla'}
+}
+document.querySelector('#calculateRoute').addEventListener('click',calculateRoute);
+document.querySelector('#refreshFreightBenchmark').addEventListener('click',loadFreightBenchmark);
+document.querySelector('#commercialBuffer').addEventListener('input',()=>loadFreightBenchmark());
+
+
+function buildPrintReport(){
+  const s=shipment();
+  const get=id=>document.querySelector(id)?.textContent?.trim()||'—';
+  document.querySelector('#printDate').textContent=new Intl.DateTimeFormat(currentLanguage==='en'?'en-US':'tr-TR',{dateStyle:'long',timeStyle:'short'}).format(new Date());
+  document.querySelector('#printProduct').textContent=document.querySelector('#productName').value||'—';
+  document.querySelector('#printHs').textContent=document.querySelector('#hsCode').value||'—';
+  document.querySelector('#printOriginCountry').textContent=selectedCountryName('#originCountry');
+  document.querySelector('#printIncoterm').textContent=document.querySelector('#incoterm').value||'—';
+  document.querySelector('#printOrigin').textContent=document.querySelector('#origin').value||'—';
+  document.querySelector('#printDestination').textContent=document.querySelector('#destination').value||'—';
+  document.querySelector('#printContainer').textContent=`${s.count} × ${document.querySelector('#containerType').value}`;
+  document.querySelector('#printQuantity').textContent=`${money(s.mt,2)} MT`;
+  document.querySelector('#printUnitFinal').textContent=get('#unitFinal')+' '+get('#unitFinalLabel');
+  document.querySelector('#printTotal').textContent=get('#total');
+  document.querySelector('#printSafeTotal').textContent=get('#safeTotal');
+  document.querySelector('#printConfidence').textContent=get('#confidence');
+  document.querySelector('#printRange').textContent=get('#range');
+  document.querySelector('#printCommercialStatus').textContent=get('#commercialStatus');
+
+  document.querySelector('#printCostRows').innerHTML=[...document.querySelectorAll('.cost-row')].map(row=>{
+    const label=row.querySelector('.label').value||'—';
+    const method=row.querySelector('.method').selectedOptions[0]?.textContent||'—';
+    const source=row.querySelector('.source').selectedOptions[0]?.textContent||'—';
+    const amount=row.querySelector('.computed').textContent||'—';
+    return `<tr><td>${label}</td><td>${method}</td><td>${source}</td><td>${amount}</td></tr>`;
+  }).join('');
+}
+
+document.querySelector('#printReport').addEventListener('click',()=>{
+  if(document.querySelector('#results').hidden){
+    alert(currentLanguage==='en'?'Calculate the cost first.':'Önce maliyeti hesaplayın.');
+    return;
+  }
+  buildPrintReport();
+  window.print();
+});
++money(latest.rate,0)+' / '+(currentLanguage==='en'?'equipment':'ekipman'):'—';
   document.querySelector('#quoteDataStatus').textContent=currentLanguage==='en'?(matches.length>=3?'Strong data':matches.length===2?'Moderate data':matches.length===1?'Single quote':'No data'):(matches.length>=3?'Güçlü veri':matches.length===2?'Orta veri':matches.length===1?'Tek teklif':'Veri yok');
 
   const list=document.querySelector('#quoteList');
