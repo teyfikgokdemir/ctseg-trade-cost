@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  core-tests:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -16,5 +16,5 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Run core tests
-        run: npm test
+      - name: Run syntax checks and core tests
+        run: npm run check
