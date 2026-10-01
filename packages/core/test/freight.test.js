@@ -41,3 +41,44 @@ test("uses per-km benchmark only when explicitly supplied", () => {
   assert.equal(r.perKmBenchmarkCount, 1);
   assert.ok(Math.abs(r.components.benchmarkBasePerUnit - 750) < 0.0001);
 });
+
+
+test("backhaul economics never invents a benefit without return-load evidence", async () => {
+  const { calculateBackhaulEconomics } = await import("../src/backhaul.js");
+  const r = calculateBackhaulEconomics({
+    outboundFreightCost: 4000
+  });
+  assert.equal(r.status, "NO_BACKHAUL_EVIDENCE");
+  assert.equal(r.expectedBenefit, 0);
+  assert.equal(r.effectiveOutboundCost, 4000);
+});
+
+test("confirmed backhaul reduces effective freight cost by verified net benefit", async () => {
+  const { calculateBackhaulEconomics, backhaulAdjustmentForLandedCost, BackhaulEvidence } = await import("../src/backhaul.js");
+  const r = calculateBackhaulEconomics({
+    outboundFreightCost: 4000,
+    returnLoadRevenue: 2200,
+    returnLoadExtraCost: 400,
+    probabilityPct: 100,
+    evidence: BackhaulEvidence.CONFIRMED_LOAD
+  });
+  assert.equal(r.expectedBenefit, 1800);
+  assert.equal(r.effectiveOutboundCost, 2200);
+  assert.equal(r.confidence, "HIGH");
+  assert.equal(backhaulAdjustmentForLandedCost(r), 1800);
+});
+
+test("market backhaul signal is informational unless confirmed", async () => {
+  const { calculateBackhaulEconomics, backhaulAdjustmentForLandedCost, BackhaulEvidence } = await import("../src/backhaul.js");
+  const r = calculateBackhaulEconomics({
+    outboundFreightCost: 4000,
+    returnLoadRevenue: 2000,
+    returnLoadExtraCost: 300,
+    probabilityPct: 60,
+    evidence: BackhaulEvidence.MARKET_SIGNAL
+  });
+  assert.equal(r.expectedRevenue, 1200);
+  assert.equal(r.expectedBenefit, 900);
+  assert.equal(backhaulAdjustmentForLandedCost(r), 0);
+  assert.equal(backhaulAdjustmentForLandedCost(r,{confirmedOnly:false}), 900);
+});
