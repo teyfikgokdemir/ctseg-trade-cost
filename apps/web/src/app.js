@@ -505,6 +505,15 @@ function selectedCountryIso2(selector){
   return countryReference.find(x=>x.code===code)?.iso2||null;
 }
 
+function parseTransitCountries(){
+  const raw=document.querySelector('#transitCountries')?.value||'';
+  if(!raw.trim()) return [];
+  const codes=raw.split(',').map(x=>x.trim().toUpperCase()).filter(Boolean);
+  const unique=[...new Set(codes)];
+  const invalid=unique.filter(code=>!/^[A-Z]{2}$/.test(code)||!countryReference.some(c=>c.iso2===code));
+  return {codes:unique,invalid};
+}
+
 async function loadCountryTaxProfile(){
   const countryEl=document.querySelector('#taxRuleCountry');
   const statusEl=document.querySelector('#taxRuleStatus');
@@ -874,7 +883,11 @@ async function restoreCalculationSnapshot(item){
   if(input.route?.origin!==undefined) document.querySelector('#origin').value=input.route.origin;
   if(input.route?.destination!==undefined) document.querySelector('#destination').value=input.route.destination;
   if(input.route?.originCountry!==undefined) document.querySelector('#originCountry').value=input.route.originCountry||'';
+  if(input.route?.exportCountry!==undefined) document.querySelector('#exportCountry').value=input.route.exportCountry||'';
   if(input.route?.importCountry!==undefined) document.querySelector('#importCountry').value=input.route.importCountry||'';
+  if(Array.isArray(input.route?.transitCountries)){
+    document.querySelector('#transitCountries').value=input.route.transitCountries.join(',');
+  }
   if(input.route?.incoterm && [...document.querySelector('#incoterm').options].some(o=>o.value===input.route.incoterm)){
     document.querySelector('#incoterm').value=input.route.incoterm;
   }
@@ -1161,6 +1174,26 @@ document.querySelector('#calculate').addEventListener('click',()=>{
   const s=shipment();
   const price=positive('#price');
   if(!s.count||!s.payload||!price){alert(currentLanguage==='en'?'Check container count, net payload and purchase price.':'Konteyner sayısı, net yük ve alış fiyatını kontrol edin.');return}
+
+  const originCountry=document.querySelector('#originCountry').value;
+  const exportCountry=document.querySelector('#exportCountry').value;
+  const importCountry=document.querySelector('#importCountry').value;
+  if(!originCountry||!exportCountry||!importCountry){
+    alert(currentLanguage==='en'
+      ? 'Select country of origin, export country and import country.'
+      : 'Menşe ülkesi, ihracat ülkesi ve ithalat ülkesini seçin.');
+    return;
+  }
+
+  const transit=parseTransitCountries();
+  if(transit.invalid?.length){
+    alert(currentLanguage==='en'
+      ? 'Invalid transit country code(s): '+transit.invalid.join(', ')
+      : 'Geçersiz transit ülke kodu/kodları: '+transit.invalid.join(', '));
+    document.querySelector('#transitCountries').focus();
+    return;
+  }
+
   const goods=goodsTotal();
   const costRows=[...document.querySelectorAll('.cost-row')];
   const dutyRow=findDutyRow();
@@ -1254,7 +1287,12 @@ document.querySelector('#calculate').addEventListener('click',()=>{
       origin:document.querySelector('#origin').value,
       destination:document.querySelector('#destination').value,
       originCountry:document.querySelector('#originCountry').value,
+      originCountryIso2:selectedCountryIso2('#originCountry'),
+      exportCountry:document.querySelector('#exportCountry').value,
+      exportCountryIso2:selectedCountryIso2('#exportCountry'),
+      transitCountries:transit.codes,
       importCountry:document.querySelector('#importCountry').value,
+      importCountryIso2:selectedCountryIso2('#importCountry'),
       incoterm:document.querySelector('#incoterm').value
     },
     routeProfile:{
@@ -1453,6 +1491,7 @@ updateCurrencyLanguage();
 document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
 document.querySelector('#refreshTaxRule').addEventListener('click',loadCountryTaxProfile);
 document.querySelector('#originCountry').addEventListener('change',loadTariff);
+document.querySelector('#exportCountry').addEventListener('change',()=>{});
 document.querySelector('#importCountry').addEventListener('change',()=>{loadTariff();loadCountryTaxProfile()});
 
 document.querySelector('#refreshFx').addEventListener('click',loadFx);
