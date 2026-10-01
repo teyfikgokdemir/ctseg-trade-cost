@@ -559,6 +559,15 @@ function freightSourceLabel(sourceType){
   return labels[sourceType]||sourceType;
 }
 
+function matchingQuotes(){
+  const key=currentQuoteKey();
+  const now=todayISO();
+  return loadQuotes()
+    .filter(q=>normalizeText(q.origin)===key.origin&&normalizeText(q.destination)===key.destination&&q.containerType===key.containerType)
+    .filter(q=>!q.validUntil||q.validUntil>=now)
+    .sort((a,b)=>new Date(b.date)-new Date(a.date));
+}
+
 async function loadFreightBenchmark(){
   const expectedEl=document.querySelector('#freightExpected');
   const rangeEl=document.querySelector('#freightRange');
@@ -623,14 +632,27 @@ async function loadFreightBenchmark(){
       return r;
     }
 
-    expectedEl.textContent='
-  const key=currentQuoteKey();
-  const now=todayISO();
-  return loadQuotes()
-    .filter(q=>normalizeText(q.origin)===key.origin&&normalizeText(q.destination)===key.destination&&q.containerType===key.containerType)
-    .filter(q=>!q.validUntil||q.validUntil>=now)
-    .sort((a,b)=>new Date(b.date)-new Date(a.date));
+    expectedEl.textContent='$'+money(r.expectedPerUnit,0)+' / '+(currentLanguage==='en'?'unit':'birim');
+    rangeEl.textContent='$'+money(r.lowPerUnit,0)+' – $'+money(r.highPerUnit,0);
+    confidenceEl.textContent=(currentLanguage==='en'
+      ? {HIGH:'High',MEDIUM:'Medium',LOW:'Low'}[r.confidence]
+      : {HIGH:'Yüksek',MEDIUM:'Orta',LOW:'Düşük'}[r.confidence])+' · '+r.confidencePct+'%';
+    sourcesEl.textContent=(r.sourceMix||[]).map(x=>freightSourceLabel(x.sourceType)+' × '+x.count).join(' + ')||'—';
+    noteEl.textContent=currentLanguage==='en'
+      ? `Benchmark uses ${r.sampleCount} evidence item(s). Route/toll extras and the commercial buffer are applied separately.`
+      : `Benchmark ${r.sampleCount} veri noktasına dayanıyor. Rota/toll ekleri ve ticari koruma payı ayrı uygulanıyor.`;
+    return r;
+  }catch{
+    if(seq!==freightBenchmarkSeq) return null;
+    expectedEl.textContent='—';
+    rangeEl.textContent='—';
+    confidenceEl.textContent=currentLanguage==='en'?'Unavailable':'Alınamadı';
+    sourcesEl.textContent='—';
+    noteEl.textContent=currentLanguage==='en'?'Freight benchmark could not be calculated.':'Navlun benchmark hesaplanamadı.';
+    return null;
+  }
 }
+
 function weightedQuoteAverage(quotes){
   if(!quotes.length) return null;
   const now=Date.now();
