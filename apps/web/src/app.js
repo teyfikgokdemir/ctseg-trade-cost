@@ -286,6 +286,7 @@ function applyLanguage(lang){
   updateCostLanguage();
   updateCurrencyLanguage();
   renderQuoteSummary();
+  loadCalculationHistory();
   loadFx();
   const hs=document.querySelector('#hsCode')?.value.trim();
   if(!hs) setHsStatus(msg('hsGlobal'));
@@ -910,8 +911,12 @@ document.querySelector('#applyQuoteAverage').addEventListener('click',()=>{
 });
 renderQuoteSummary();
 hydrateQuotesFromD1();
+loadCalculationHistory();
+document.querySelector('#refreshCalculationHistory').addEventListener('click',loadCalculationHistory);
 
 document.querySelector('#calculate').addEventListener('click',()=>{
+  const notice=document.querySelector('#historySnapshotNotice');
+  if(notice) notice.hidden=true;
   const s=shipment();
   const price=positive('#price');
   if(!s.count||!s.payload||!price){alert(currentLanguage==='en'?'Check container count, net payload and purchase price.':'Konteyner sayısı, net yük ve alış fiyatını kontrol edin.');return}
@@ -969,15 +974,39 @@ document.querySelector('#calculate').addEventListener('click',()=>{
   document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
   document.querySelector('#routeText').textContent=
     `${document.querySelector('#productName').value} · ${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${s.count} × ${document.querySelector('#containerType').value}`;
+  const snapshotCostRows=costRows.map(row=>({
+    label:row.querySelector('.label').value,
+    method:row.querySelector('.method').value,
+    rate:Number(row.querySelector('.rate').value)||0,
+    source:row.querySelector('.source').value
+  }));
+
   persistCalculationSnapshot({
     product:{name:document.querySelector('#productName').value,hsCode:document.querySelector('#hsCode').value},
-    route:{origin:document.querySelector('#origin').value,destination:document.querySelector('#destination').value,originCountry:document.querySelector('#originCountry').value,importCountry:document.querySelector('#importCountry').value},
-    shipment:{containerType:document.querySelector('#containerType').value,containerCount:s.count,netMt:s.mt},
-    purchase:{price:Number(document.querySelector('#price').value)||0,priceUnit:document.querySelector('#priceUnit').value}
+    route:{
+      origin:document.querySelector('#origin').value,
+      destination:document.querySelector('#destination').value,
+      originCountry:document.querySelector('#originCountry').value,
+      importCountry:document.querySelector('#importCountry').value,
+      incoterm:document.querySelector('#incoterm').value
+    },
+    routeProfile:{
+      grossWeightKg:Number(document.querySelector('#grossWeightKg').value)||0,
+      heightCm:Number(document.querySelector('#heightCm').value)||0,
+      commercialBufferPct:bufferPct
+    },
+    shipment:{
+      containerType:document.querySelector('#containerType').value,
+      containerCount:s.count,
+      payloadPerContainer:s.payload,
+      netMt:s.mt
+    },
+    purchase:{price:Number(document.querySelector('#price').value)||0,priceUnit:document.querySelector('#priceUnit').value},
+    costRows:snapshotCostRows
   },{
     currency:'USD',goodsTotal:goods,extraTotal:extra,total,range:{low,high},confidencePct:confidence,
     estimateSharePct:estimateShare,commercialBufferPct:bufferPct,safeTotal
-  });
+  }).then(saved=>{if(saved) loadCalculationHistory()});
 
   document.querySelector('#results').hidden=false;
 });
