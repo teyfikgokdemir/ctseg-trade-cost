@@ -193,6 +193,27 @@ const CURATED_ALIASES = {
       basis: "Commercial plural alias. Exact classification depends on presentation."
     }
   ],
+  "kabuksuz antep fistigi": [
+    {
+      hsCode: "080252",
+      labels: { tr: "Kabuksuz Antep fıstığı", en: "Shelled pistachios" },
+      basis: "Commercial-name alias favoring the shelled HS6 candidate."
+    }
+  ],
+  "shelled pistachios": [
+    {
+      hsCode: "080252",
+      labels: { tr: "Kabuksuz Antep fıstığı", en: "Shelled pistachios" },
+      basis: "Commercial-name alias favoring the shelled HS6 candidate."
+    }
+  ],
+  "kabuklu antep fistigi": [
+    {
+      hsCode: "080251",
+      labels: { tr: "Kabuklu Antep fıstığı", en: "Pistachios in shell" },
+      basis: "Commercial-name alias favoring the in-shell HS6 candidate."
+    }
+  ],
   "antep fistigi": [
     {
       hsCode: "080251",
