@@ -74,6 +74,8 @@ export async function onRequestGet({ request, env }) {
         containerType: row.equipment,
         currency: row.currency,
         sourceType: row.source_type,
+        originCountry: row.origin_country,
+        destinationCountry: row.destination_country,
         metadata: row.metadata_json ? JSON.parse(row.metadata_json) : null
       }))
     });
@@ -122,7 +124,12 @@ export async function onRequestPost({ request, env }) {
       body.provider || null,
       quotedAt,
       body.validUntil || null,
-      JSON.stringify(body.metadata || {})
+      JSON.stringify({
+        ...(body.metadata || {}),
+        countryOfOrigin: body.countryOfOrigin || null,
+        exportCountry: body.exportCountry || body.originCountry || null,
+        transitCountries: Array.isArray(body.transitCountries) ? body.transitCountries : []
+      })
     ).run();
 
     return json({
@@ -136,7 +143,15 @@ export async function onRequestPost({ request, env }) {
         origin: String(body.origin).trim(),
         destination: String(body.destination).trim(),
         containerType: String(body.equipment).trim(),
-        currency: body.currency || "USD"
+        currency: body.currency || "USD",
+        originCountry: body.originCountry || null,
+        destinationCountry: body.destinationCountry || null,
+        metadata: {
+          ...(body.metadata || {}),
+          countryOfOrigin: body.countryOfOrigin || null,
+          exportCountry: body.exportCountry || body.originCountry || null,
+          transitCountries: Array.isArray(body.transitCountries) ? body.transitCountries : []
+        }
       }
     }, 201);
   } catch (error) {
