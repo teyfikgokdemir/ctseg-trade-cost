@@ -1134,8 +1134,12 @@ function renderQuoteSummary(){
   const avg=weightedQuoteAverage(matches);
   const latest=matches[0];
   document.querySelector('#matchedQuoteCount').textContent=String(matches.length);
-  document.querySelector('#matchedQuoteAverage').textContent=avg?'
-  document.querySelector('#quoteDataStatus').textContent=currentLanguage==='en'?(matches.length>=3?'Strong data':matches.length===2?'Moderate data':matches.length===1?'Single quote':'No data'):(matches.length>=3?'Güçlü veri':matches.length===2?'Orta veri':matches.length===1?'Tek teklif':'Veri yok');
+  const equipmentLabel=currentLanguage==='en'?'equipment':'ekipman';
+  document.querySelector('#matchedQuoteAverage').textContent=avg?'$'+money(avg,0)+' / '+equipmentLabel:'—';
+  document.querySelector('#latestQuoteValue').textContent=latest?'$'+money(latest.rate,0)+' / '+equipmentLabel:'—';
+  document.querySelector('#quoteDataStatus').textContent=currentLanguage==='en'
+    ? (matches.length>=3?'Strong data':matches.length===2?'Moderate data':matches.length===1?'Single quote':'No data')
+    : (matches.length>=3?'Güçlü veri':matches.length===2?'Orta veri':matches.length===1?'Tek teklif':'Veri yok');
 
   const list=document.querySelector('#quoteList');
   list.innerHTML=matches.slice(0,6).map(q=>`
