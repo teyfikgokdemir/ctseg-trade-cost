@@ -45,3 +45,13 @@ No placeholder value may be surfaced as LIVE or OFFICIAL.
 - Data calls pass documented WTO Timeseries query parameters through to `/timeseries/v1/data`.
 - WTO tariff observations are tagged `OFFICIAL`, but the application must retain reporting year, HS revision, aggregation level and source metadata.
 - An official historical/statistical observation is not automatically a current executable customs assessment.
+
+
+## WITS / UNCTAD TRAINS HS metadata
+- Provider id: `wits-unctad-trains`
+- Authentication: none for metadata endpoints
+- Endpoint: `/api/hs`
+- Exact lookup: `/api/hs?code=010110`
+- Candidate text search: `/api/hs?q=threonine`
+- Results are classification candidates only; HS revision and importing-country national tariff-line verification are still required.
+- Product metadata originates from the WITS UNCTAD TRAINS product metadata endpoint and is cached at the edge.
