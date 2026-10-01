@@ -102,6 +102,23 @@
       <p id="tariffNote" class="section-help">HS kodu ve ülkeler seçildiğinde otomatik sorgulanır.</p>
     </section>
 
+    <section class="panel tax-rule-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Ülke vergi kuralı</h2>
+          <p class="section-help">Hedef ülke için otomatik vergi modeli mevcutsa gösterilir. Oran doğrulanmadan sistem vergi uydurmaz.</p>
+        </div>
+        <button id="refreshTaxRule" type="button">Vergi kuralını yenile</button>
+      </div>
+      <div class="route-stats">
+        <div><span>Ülke</span><strong id="taxRuleCountry">—</strong></div>
+        <div><span>Kural paketi</span><strong id="taxRuleStatus">Bekliyor</strong></div>
+        <div><span>Vergi modeli</span><strong id="taxRuleModel">—</strong></div>
+        <div><span>Oran politikası</span><strong id="taxRuleRatePolicy">—</strong></div>
+      </div>
+      <p id="taxRuleNote" class="section-help">İthalat ülkesi seçildiğinde kontrol edilir.</p>
+    </section>
+
     <section class="panel route-panel">
       <div class="panel-head">
         <div>
