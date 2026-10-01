@@ -13,6 +13,8 @@ const STATIC_TRANSLATIONS={
   'Üründen ara':'Search by product',
   'HS 2022 global sınıflandırma':'HS 2022 global classification',
   'Menşe ülke':'Country of origin',
+  'İhracat ülkesi':'Export country',
+  'Transit ülkeler':'Transit countries',
   'Çıkış noktası':'Origin point',
   'Teslim noktası':'Delivery point',
   'İthalat ülkesi':'Import country',
@@ -267,7 +269,10 @@ function translateStaticDocument(){
   const placeholders={
     productName:{tr:'Ayçiçek yağı',en:'Sunflower oil'},
     hsCode:{tr:'Kod veya ürün adı yazın…',en:'Type HS code or product name…'},
-    quoteProvider:{tr:'Örn. ABC Lojistik',en:'e.g. ABC Logistics'}
+    quoteProvider:{tr:'Örn. ABC Lojistik',en:'e.g. ABC Logistics'},
+    origin:{tr:'Şehir, liman, depo veya sınır kapısı',en:'City, port, warehouse or border crossing'},
+    destination:{tr:'Şehir, liman, depo veya adres',en:'City, port, warehouse or address'},
+    transitCountries:{tr:'Opsiyonel · ISO2 kodları, örn. GE,AZ',en:'Optional · ISO2 codes, e.g. GE,AZ'}
   };
   for(const [id,values] of Object.entries(placeholders)){
     const el=document.querySelector('#'+id);
@@ -327,15 +332,15 @@ const methodLabelsEn={FIXED:'Per shipment',PER_CONTAINER:'Per container',PER_MT:
 const sourceLabels=currentLanguage==='en'?sourceLabelsEn:sourceLabelsTr;
 const methodLabels=currentLanguage==='en'?methodLabelsEn:methodLabelsTr;
 const defaults=[
-  ['Çıkış iç nakliye','PER_CONTAINER',1800,'MARKET_AVG'],
-  ['İhracat gümrüğü ve belgeler','FIXED',950,'MARKET_AVG'],
-  ['Uluslararası navlun','PER_CONTAINER',5600,'MARKET_AVG'],
-  ['Yük sigortası','PCT_GOODS',0.35,'QUOTE'],
-  ['Varış / sınır masrafları','PER_CONTAINER',1200,'ESTIMATE'],
+  ['Çıkış iç nakliye','PER_CONTAINER','','ESTIMATE'],
+  ['İhracat gümrüğü ve belgeler','FIXED','','ESTIMATE'],
+  ['Uluslararası navlun','PER_CONTAINER','','ESTIMATE'],
+  ['Yük sigortası','PCT_GOODS','','ESTIMATE'],
+  ['Varış / sınır masrafları','PER_CONTAINER','','ESTIMATE'],
   ['İthalat gümrük vergisi (doğrulanacak)','PCT_CUSTOMS','','ESTIMATE'],
   ['İthalat KDV / yerel vergi (doğrulanacak)','PCT_IMPORT_TAX','','ESTIMATE'],
-  ['Gümrük müşavirliği','FIXED',1300,'MARKET_AVG'],
-  ['Varış iç nakliye','PER_CONTAINER',1600,'ESTIMATE']
+  ['Gümrük müşavirliği','FIXED','','ESTIMATE'],
+  ['Varış iç nakliye','PER_CONTAINER','','ESTIMATE']
 ];
 const rows=document.querySelector('#costRows');
 const quoteStoreKey='ctseg_trade_cost_quotes_v1';
@@ -449,6 +454,7 @@ let taxRuleRequestSeq=0;
 
 async function loadCountries(){
   const originSelect=document.querySelector('#originCountry');
+  const exportSelect=document.querySelector('#exportCountry');
   const importSelect=document.querySelector('#importCountry');
 
   try{
@@ -479,10 +485,12 @@ async function loadCountries(){
       }
     };
 
-    fill(originSelect,'792');
-    fill(importSelect,'004');
+    fill(originSelect);
+    fill(exportSelect);
+    fill(importSelect);
   }catch{
     originSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
+    exportSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
     importSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
   }
 }
@@ -530,7 +538,7 @@ async function loadCountryTaxProfile(){
     if(!res.ok) throw new Error(data?.message||data?.error||'Tax rule profile failed');
 
     const profile=data.profile||{};
-    const configured=profile.status==='CONFIGURED';
+    const configured=profile.status==='COUNTRY_SPECIFIC';
     statusEl.textContent=configured?msg('taxRuleConfigured'):msg('taxRuleManual');
     modelEl.textContent=profile.taxModel||'—';
     ratePolicyEl.textContent=profile.ratePolicy==='PRODUCT_RATE_MUST_BE_VERIFIED'
