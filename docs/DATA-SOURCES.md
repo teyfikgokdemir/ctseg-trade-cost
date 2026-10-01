@@ -55,3 +55,14 @@ No placeholder value may be surfaced as LIVE or OFFICIAL.
 - Candidate text search: `/api/hs?q=threonine`
 - Results are classification candidates only; HS revision and importing-country national tariff-line verification are still required.
 - Product metadata originates from the WITS UNCTAD TRAINS product metadata endpoint and is cached at the edge.
+
+
+## UN Statistics Division / UN Comtrade HS 2022
+- Provider id: `un-comtrade-hs2022`
+- Official reference file: `https://comtradeapi.un.org/files/v1/app/reference/H6.json`
+- This reference is linked from the United Nations Statistics Division classifications page for HS 2022.
+- Primary endpoint: `/api/hs`
+- Exact lookup: `/api/hs?code=292250`
+- Text/candidate lookup: `/api/hs?q=threonine`
+- Optional secondary WITS check: `/api/hs?code=292250&verify=wits`
+- HS 2022 is the primary international classification reference. Country-specific national tariff lines remain authoritative for a binding declaration.
