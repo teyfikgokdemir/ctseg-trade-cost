@@ -3041,6 +3041,9 @@ document.querySelector('#searchHsFromProduct').addEventListener('click',()=>{
     const el=document.querySelector('#'+id);
     const save=()=>{
       if(currentWorkspaceView()!=='calculator'){
+        invalidateQuickResults(currentLanguage==='en'
+          ? 'Detail inputs changed. Recalculate from the main calculator.'
+          : 'Detay girdileri değişti. Ana hesaptan yeniden hesaplayın.');
         syncEngineCoreToQuick();
         persistWorkspaceDraft();
       }
