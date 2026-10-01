@@ -123,6 +123,38 @@
       <p id="tariffNote" class="section-help">HS kodu ve ülkeler seçildiğinde otomatik sorgulanır.</p>
     </section>
 
+    <section class="panel customs-valuation-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Gümrük kıymeti doğrulama</h2>
+          <p class="section-help">Transaction value üzerine yalnız doğrulanmış ekleme/indirimleri uygulayın. Hedef ülkenin valuation kuralı doğrulanmadan final duty hesaplanmaz.</p>
+        </div>
+      </div>
+      <div class="grid inputs">
+        <label>Transaction value (USD)<input id="customsTransactionValue" type="number" min="0" step="0.01" readonly /></label>
+        <label>Doğrulama durumu
+          <select id="customsValuationStatus">
+            <option value="WORKING">Çalışma değeri</option>
+            <option value="VERIFIED">Doğrulandı</option>
+          </select>
+        </label>
+        <label>Gümrük kıymeti (USD)<input id="customsValue" type="number" readonly /></label>
+
+        <label>Sınıra kadar navlun ekle<input id="cvFreight" type="number" min="0" step="0.01" value="0" /></label>
+        <label>Sınıra kadar sigorta ekle<input id="cvInsurance" type="number" min="0" step="0.01" value="0" /></label>
+        <label>Ambalaj / packing ekle<input id="cvPacking" type="number" min="0" step="0.01" value="0" /></label>
+
+        <label>Assists ekle<input id="cvAssists" type="number" min="0" step="0.01" value="0" /></label>
+        <label>Royalty / lisans ekle<input id="cvRoyalties" type="number" min="0" step="0.01" value="0" /></label>
+        <label>Satış komisyonu ekle<input id="cvSellingCommission" type="number" min="0" step="0.01" value="0" /></label>
+
+        <label>Diğer ekleme<input id="cvOtherAddition" type="number" min="0" step="0.01" value="0" /></label>
+        <label>İthalat sonrası taşıma indir<input id="cvPostImportTransport" type="number" min="0" step="0.01" value="0" /></label>
+        <label>Diğer indirim<input id="cvOtherDeduction" type="number" min="0" step="0.01" value="0" /></label>
+      </div>
+      <p id="customsValuationNote" class="section-help">Bu alan çalışma değeridir. Hangi kalemin eklenip indirileceği hedef ülke kurallarına göre doğrulanmalıdır.</p>
+    </section>
+
     <section class="panel tax-rule-panel">
       <div class="panel-head">
         <div>
