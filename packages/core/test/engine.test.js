@@ -343,3 +343,43 @@ test('customs valuation stays unresolved when a non-zero adjustment is unverifie
   assert.equal(r.requiresVerification, true);
   assert.deepEqual(r.unresolvedAdjustments, ['ROYALTIES_LICENSE_FEES']);
 });
+
+
+test('preferential tariff never applies from candidate evidence alone', async () => {
+  const { resolvePreferentialTariff, PreferentialEligibility } = await import("../src/preferential-tariff.js");
+
+  const r = resolvePreferentialTariff({
+    mfnRate: 10,
+    candidateRate: 2,
+    eligibilityStatus: PreferentialEligibility.NOT_CONFIRMED
+  });
+
+  assert.equal(r.rate, 10);
+  assert.equal(r.basis, "MFN");
+  assert.equal(r.requiresVerification, false);
+});
+
+test('verified preferential tariff requires eligibility, rate and scheme reference', async () => {
+  const { resolvePreferentialTariff, PreferentialEligibility } = await import("../src/preferential-tariff.js");
+
+  const incomplete = resolvePreferentialTariff({
+    mfnRate: 10,
+    candidateRate: 2,
+    eligibilityStatus: PreferentialEligibility.ELIGIBLE,
+    verifiedPreferentialRate: 2
+  });
+  assert.equal(incomplete.rate, 10);
+  assert.equal(incomplete.basis, "MFN");
+  assert.equal(incomplete.requiresVerification, true);
+
+  const verified = resolvePreferentialTariff({
+    mfnRate: 10,
+    candidateRate: 2,
+    eligibilityStatus: PreferentialEligibility.ELIGIBLE,
+    verifiedPreferentialRate: 2,
+    schemeReference: "Verified FTA / origin evidence"
+  });
+  assert.equal(verified.rate, 2);
+  assert.equal(verified.basis, "PREFERENTIAL_VERIFIED");
+  assert.equal(verified.requiresVerification, false);
+});
