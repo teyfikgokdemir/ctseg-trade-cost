@@ -1,26 +1,95 @@
 const HS2022_URL = "https://comtradeapi.un.org/files/v1/app/reference/H6.json";
 
 const CURATED_ALIASES = {
-  "threonine": {
-    hsCode: "292250",
-    label: "L-Threonine / Threonine",
-    basis: "Curated classification candidate supported by national customs tariff/ruling examples under HS heading 2922.50."
-  },
-  "l-threonine": {
-    hsCode: "292250",
-    label: "L-Threonine",
-    basis: "Curated classification candidate supported by national customs tariff/ruling examples under HS heading 2922.50."
-  },
-  "l threonine": {
-    hsCode: "292250",
-    label: "L-Threonine",
-    basis: "Curated classification candidate supported by national customs tariff/ruling examples under HS heading 2922.50."
-  }
+  "threonine": [
+    {
+      hsCode: "292250",
+      labels: { tr: "L-Treonin / Treonin", en: "L-Threonine / Threonine" },
+      basis: "Curated classification candidate supported by national customs tariff/ruling examples under HS heading 2922.50."
+    }
+  ],
+  "l threonine": [
+    {
+      hsCode: "292250",
+      labels: { tr: "L-Treonin", en: "L-Threonine" },
+      basis: "Curated classification candidate supported by national customs tariff/ruling examples under HS heading 2922.50."
+    }
+  ],
+  "treonin": [
+    {
+      hsCode: "292250",
+      labels: { tr: "L-Treonin / Treonin", en: "L-Threonine / Threonine" },
+      basis: "Curated multilingual classification candidate under HS heading 2922.50."
+    }
+  ],
+  "l treonin": [
+    {
+      hsCode: "292250",
+      labels: { tr: "L-Treonin", en: "L-Threonine" },
+      basis: "Curated multilingual classification candidate under HS heading 2922.50."
+    }
+  ],
+  "aycicek": [
+    {
+      hsCode: "151211",
+      labels: { tr: "Ham ayçiçek veya aspir yağı", en: "Crude sunflower-seed or safflower oil" },
+      basis: "Multilingual search alias. Exact classification depends on whether the oil is crude or other/refined."
+    },
+    {
+      hsCode: "151219",
+      labels: { tr: "Diğer ayçiçek veya aspir yağları", en: "Other sunflower-seed or safflower oil" },
+      basis: "Multilingual search alias. Exact classification depends on whether the oil is crude or other/refined."
+    }
+  ],
+  "aycicek yagi": [
+    {
+      hsCode: "151211",
+      labels: { tr: "Ham ayçiçek veya aspir yağı", en: "Crude sunflower-seed or safflower oil" },
+      basis: "Multilingual search alias. Exact classification depends on whether the oil is crude or other/refined."
+    },
+    {
+      hsCode: "151219",
+      labels: { tr: "Diğer ayçiçek veya aspir yağları", en: "Other sunflower-seed or safflower oil" },
+      basis: "Multilingual search alias. Exact classification depends on whether the oil is crude or other/refined."
+    }
+  ],
+  "badem": [
+    {
+      hsCode: "080211",
+      labels: { tr: "Kabuklu badem", en: "Almonds in shell" },
+      basis: "Multilingual search alias. Exact classification depends on presentation."
+    },
+    {
+      hsCode: "080212",
+      labels: { tr: "Kabuksuz badem", en: "Shelled almonds" },
+      basis: "Multilingual search alias. Exact classification depends on presentation."
+    }
+  ],
+  "almond": [
+    {
+      hsCode: "080211",
+      labels: { tr: "Kabuklu badem", en: "Almonds in shell" },
+      basis: "Multilingual search alias. Exact classification depends on presentation."
+    },
+    {
+      hsCode: "080212",
+      labels: { tr: "Kabuksuz badem", en: "Shelled almonds" },
+      basis: "Multilingual search alias. Exact classification depends on presentation."
+    }
+  ]
 };
 
 function normalizeText(value) {
   return String(value || "")
     .toLowerCase()
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[-_/]+/g, " ")
     .replace(/[^a-z0-9\s]+/g, " ")
     .replace(/\s+/g, " ")
@@ -89,7 +158,8 @@ export async function searchHs2022(query, limit = 10) {
   if (!normalized) return [];
 
   const catalog = await fetchCatalog();
-  const alias = CURATED_ALIASES[normalized];
+  const aliases = CURATED_ALIASES[normalized] || [];
+  const aliasByCode = new Map(aliases.map(x => [x.hsCode, x]));
 
   const scored = catalog
     .filter(item => Number(item.aggrlevel) === 6)
@@ -110,12 +180,12 @@ export async function searchHs2022(query, limit = 10) {
         if (hay.includes(term)) score += 12;
       }
 
-      if (alias?.hsCode === candidate.hsCode) score += 2000;
+      if (aliasByCode.has(candidate.hsCode)) score += 2000;
 
       return {
         ...candidate,
         score,
-        matchType: alias?.hsCode === candidate.hsCode
+        matchType: aliasByCode.has(candidate.hsCode)
           ? "CURATED_ALIAS"
           : (/^\d+$/.test(rawQuery) && candidate.hsCode.startsWith(rawQuery))
             ? "CODE_PREFIX"
@@ -129,26 +199,29 @@ export async function searchHs2022(query, limit = 10) {
     .slice(0, limit)
     .map(({ score, ...item }) => item);
 
-  if (alias && !scored.some(x => x.hsCode === alias.hsCode)) {
+  for (const alias of aliases) {
+    if (scored.some(x => x.hsCode === alias.hsCode)) continue;
     const target = catalog.find(x => String(x.id) === alias.hsCode);
     if (target) {
       scored.unshift(toCandidate(target, {
         matchType: "CURATED_ALIAS",
-        aliasLabel: alias.label,
+        aliasLabel: alias.labels?.en || null,
+        localizedLabels: alias.labels || null,
         classificationBasis: alias.basis
       }));
-      return scored.slice(0, limit);
     }
   }
 
-  return scored.map(item => {
-    if (alias?.hsCode === item.hsCode) {
+  return scored
+    .slice(0, limit)
+    .map(item => {
+      const alias = aliasByCode.get(item.hsCode);
+      if (!alias) return item;
       return {
         ...item,
-        aliasLabel: alias.label,
+        aliasLabel: alias.labels?.en || null,
+        localizedLabels: alias.labels || null,
         classificationBasis: alias.basis
       };
-    }
-    return item;
-  });
+    });
 }
