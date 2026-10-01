@@ -129,7 +129,9 @@ const UI_MESSAGES={
     tariffNoDataNote:'WTO tarife verisi alınamadı; manuel doğrulama gerekli.',
     highConfidence:'Yüksek güven',
     mediumConfidence:'Orta güven',
-    verifyRequired:'Doğrulama gerekli',
+    verifyRequired:'Ulusal tarife doğrulaması gerekli',
+    tariffNoResolvedRate:'Veri yok',
+    tariffNoResolvedNote:'WTO bu HS6/ülke kombinasyonu için kullanılabilir bir MFN observation döndürmedi. Ulusal tarife satırı manuel doğrulanmalıdır.',
     tariffMfn:'WTO MFN oranı otomatik uygulandı. Nihai beyan öncesi ulusal tarife satırı doğrulanmalıdır.',
     countriesLoading:'Ülkeler yükleniyor…',
     countrySelect:'Ülke seçin'
@@ -152,7 +154,9 @@ const UI_MESSAGES={
     tariffNoDataNote:'WTO tariff data could not be retrieved; manual verification is required.',
     highConfidence:'High confidence',
     mediumConfidence:'Medium confidence',
-    verifyRequired:'Verification required',
+    verifyRequired:'National tariff verification required',
+    tariffNoResolvedRate:'No data',
+    tariffNoResolvedNote:'WTO returned no usable MFN observation for this HS6/country combination. Verify the national tariff line manually.',
     tariffMfn:'The WTO MFN rate was applied automatically. Verify the national tariff line before the final declaration.',
     countriesLoading:'Loading countries…',
     countrySelect:'Select country'
@@ -429,8 +433,10 @@ function applyTariffToUi(normalized){
   const duty=findDutyRow();
   if(!duty) return;
 
-  const rate=Number(normalized?.appliedRateDecision?.rate);
-  if(Number.isFinite(rate)){
+  const rawRate=normalized?.appliedRateDecision?.rate;
+  const hasResolvedYear=Number.isFinite(Number(normalized?.resolvedYear));
+  const rate=rawRate === null || rawRate === undefined || rawRate === '' ? null : Number(rawRate);
+  if(hasResolvedYear && Number.isFinite(rate)){
     duty.querySelector('.rate').value=String(rate);
     duty.querySelector('.source').value='OFFICIAL';
     duty.querySelector('.label').value=currentLanguage==='en'?'Import duty':'İthalat gümrük vergisi';
@@ -481,9 +487,21 @@ async function loadTariff(){
     if(!res.ok) throw new Error(data?.message||data?.error||'Tarife sorgusu başarısız');
 
     const normalized=data.normalized||{};
-    const rate=Number(normalized?.appliedRateDecision?.rate);
-    rateEl.textContent=Number.isFinite(rate)?'%'+money(rate,2):'Veri yok';
-    yearEl.textContent=normalized.resolvedYear||'—';
+    const rawRate=normalized?.appliedRateDecision?.rate;
+    const hasResolvedYear=Number.isFinite(Number(normalized?.resolvedYear));
+    const rate=rawRate === null || rawRate === undefined || rawRate === '' ? null : Number(rawRate);
+    const hasOfficialRate=hasResolvedYear && Number.isFinite(rate);
+
+    rateEl.textContent=hasOfficialRate?'%'+money(rate,2):msg('tariffNoResolvedRate');
+    yearEl.textContent=hasResolvedYear?String(normalized.resolvedYear):'—';
+
+    if(!hasOfficialRate){
+      statusEl.textContent=msg('verifyRequired');
+      noteEl.textContent=msg('tariffNoResolvedNote');
+      applyTariffToUi(null);
+      return data;
+    }
+
     statusEl.textContent=normalized.confidence==='HIGH'
       ?msg('highConfidence')
       :normalized.confidence==='MEDIUM'
