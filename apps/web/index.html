@@ -70,17 +70,30 @@
           </select>
         </label>
 
-        <label>Konteyner tipi
-          <select id="containerType">
-            <option value="20FT">20 ft</option>
-            <option value="40FT" selected>40 ft</option>
+        <label>Taşıma modu
+          <select id="transportMode">
+            <option value="SEA" selected>Denizyolu</option>
+            <option value="ROAD">Karayolu</option>
+            <option value="RAIL">Demiryolu</option>
+            <option value="AIR">Havayolu</option>
+            <option value="MULTIMODAL">Multimodal</option>
           </select>
         </label>
-        <label>Konteyner sayısı<input id="containerCount" type="number" min="1" step="1" value="4" /></label>
-        <label>Net yük / konteyner (MT)<input id="payloadPerContainer" type="number" min="0.1" step="0.1" value="25" /></label>
+        <label>Taşıma ekipmanı
+          <select id="containerType">
+            <option value="20FT">20 ft konteyner</option>
+            <option value="40FT" selected>40 ft konteyner</option>
+            <option value="TRUCK">Kamyon / TIR</option>
+            <option value="RAIL_WAGON">Demiryolu vagonu</option>
+            <option value="AIR_CARGO">Hava kargo birimi</option>
+            <option value="OTHER">Diğer</option>
+          </select>
+        </label>
+        <label>Ekipman sayısı<input id="containerCount" type="number" min="1" step="1" value="1" /></label>
+        <label>Net yük / ekipman (MT)<input id="payloadPerContainer" type="number" min="0.1" step="0.1" /></label>
 
-        <label>Toplam net miktar (MT)<input id="totalMt" type="number" value="100" readonly /></label>
-        <label>Alış fiyatı<input id="price" type="number" min="0" step="0.01" value="1.80" /></label>
+        <label>Toplam net miktar (MT)<input id="totalMt" type="number" readonly /></label>
+        <label>Alış fiyatı<input id="price" type="number" min="0" step="0.01" /></label>
         <label>Fiyat birimi
           <select id="priceUnit">
             <option value="USD_L" selected>USD / Litre</option>
