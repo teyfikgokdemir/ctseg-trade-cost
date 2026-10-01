@@ -1084,7 +1084,7 @@ document.querySelector('#calculate').addEventListener('click',()=>{
   if(importTaxRow && /doğrulanacak|to be verified/i.test(importTaxRow.querySelector('.label').value)){
     const taxRateRaw=importTaxRow.querySelector('.rate').value.trim();
     const taxSource=importTaxRow.querySelector('.source').value;
-    const manuallyVerified=taxRateRaw!=='' && taxSource==='MANUAL';
+    const manuallyVerified=taxRateRaw!=='' && ['MANUAL','OFFICIAL','LIVE'].includes(taxSource);
     if(!manuallyVerified){
       alert(currentLanguage==='en'
         ? 'Import VAT/local tax is unresolved. Enter the verified destination-country rate manually and set the source to Manual data, or remove this row when the tax is not part of the landed-cost scenario.'
@@ -1092,7 +1092,6 @@ document.querySelector('#calculate').addEventListener('click',()=>{
       importTaxRow.querySelector('.rate').focus();
       return;
     }
-    importTaxRow.querySelector('.label').value=currentLanguage==='en'?'Import VAT / local tax':'İthalat KDV / yerel vergi';
   }
   const costs=costRows.map(row=>({amount:calculateRow(row),source:row.querySelector('.source').value}));
   const extra=costs.reduce((sum,c)=>sum+c.amount,0);
