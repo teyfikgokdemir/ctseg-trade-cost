@@ -29,6 +29,20 @@ const CURATED_ALIASES = {
       basis: "Curated multilingual classification candidate under HS heading 2922.50."
     }
   ],
+  "feed grade threonine": [
+    {
+      hsCode: "292250",
+      labels: { tr: "Yem tipi L-Treonin", en: "Feed-grade L-Threonine" },
+      basis: "Curated commercial-name candidate under HS heading 2922.50; product composition and national tariff line still require verification."
+    }
+  ],
+  "l threonine 98 5": [
+    {
+      hsCode: "292250",
+      labels: { tr: "%98,5 L-Treonin", en: "L-Threonine 98.5%" },
+      basis: "Curated commercial-name candidate under HS heading 2922.50; assay wording does not by itself establish the final national tariff line."
+    }
+  ],
   "aycicek": [
     {
       hsCode: "151211",
@@ -51,6 +65,44 @@ const CURATED_ALIASES = {
       hsCode: "151219",
       labels: { tr: "Diğer ayçiçek veya aspir yağları", en: "Other sunflower-seed or safflower oil" },
       basis: "Multilingual search alias. Exact classification depends on whether the oil is crude or other/refined."
+    }
+  ],
+  "sunflower oil": [
+    {
+      hsCode: "151211",
+      labels: { tr: "Ham ayçiçek veya aspir yağı", en: "Crude sunflower-seed or safflower oil" },
+      basis: "Commercial-name alias. Exact classification depends on whether the oil is crude or other/refined."
+    },
+    {
+      hsCode: "151219",
+      labels: { tr: "Rafine/diğer ayçiçek veya aspir yağları", en: "Other/refined sunflower-seed or safflower oil" },
+      basis: "Commercial-name alias. Exact classification depends on whether the oil is crude or other/refined."
+    }
+  ],
+  "sunflower seed oil": [
+    {
+      hsCode: "151211",
+      labels: { tr: "Ham ayçiçek veya aspir yağı", en: "Crude sunflower-seed or safflower oil" },
+      basis: "Commercial-name alias. Exact classification depends on whether the oil is crude or other/refined."
+    },
+    {
+      hsCode: "151219",
+      labels: { tr: "Rafine/diğer ayçiçek veya aspir yağları", en: "Other/refined sunflower-seed or safflower oil" },
+      basis: "Commercial-name alias. Exact classification depends on whether the oil is crude or other/refined."
+    }
+  ],
+  "refined sunflower oil": [
+    {
+      hsCode: "151219",
+      labels: { tr: "Rafine/diğer ayçiçek veya aspir yağları", en: "Other/refined sunflower-seed or safflower oil" },
+      basis: "Commercial-name alias favoring the non-crude HS6 candidate; final national tariff classification still requires verification."
+    }
+  ],
+  "ham aycicek yagi": [
+    {
+      hsCode: "151211",
+      labels: { tr: "Ham ayçiçek veya aspir yağı", en: "Crude sunflower-seed or safflower oil" },
+      basis: "Commercial-name alias favoring the crude HS6 candidate; final national tariff classification still requires verification."
     }
   ],
   "badem": [
@@ -76,10 +128,86 @@ const CURATED_ALIASES = {
       labels: { tr: "Kabuksuz badem", en: "Shelled almonds" },
       basis: "Multilingual search alias. Exact classification depends on presentation."
     }
+  ],
+  "almonds": [
+    {
+      hsCode: "080211",
+      labels: { tr: "Kabuklu badem", en: "Almonds in shell" },
+      basis: "Commercial plural alias. Exact classification depends on presentation."
+    },
+    {
+      hsCode: "080212",
+      labels: { tr: "Kabuksuz badem", en: "Shelled almonds" },
+      basis: "Commercial plural alias. Exact classification depends on presentation."
+    }
+  ],
+  "shelled almonds": [
+    {
+      hsCode: "080212",
+      labels: { tr: "Kabuksuz badem", en: "Shelled almonds" },
+      basis: "Commercial-name alias favoring the shelled HS6 candidate."
+    }
+  ],
+  "almond kernels": [
+    {
+      hsCode: "080212",
+      labels: { tr: "Kabuksuz badem", en: "Shelled almonds / almond kernels" },
+      basis: "Commercial-name alias favoring the shelled HS6 candidate."
+    }
+  ],
+  "kabuksuz badem": [
+    {
+      hsCode: "080212",
+      labels: { tr: "Kabuksuz badem", en: "Shelled almonds" },
+      basis: "Commercial-name alias favoring the shelled HS6 candidate."
+    }
+  ],
+  "kabuklu badem": [
+    {
+      hsCode: "080211",
+      labels: { tr: "Kabuklu badem", en: "Almonds in shell" },
+      basis: "Commercial-name alias favoring the in-shell HS6 candidate."
+    }
+  ],
+  "pistachio": [
+    {
+      hsCode: "080251",
+      labels: { tr: "Kabuklu Antep fıstığı / pistachio", en: "Pistachios in shell" },
+      basis: "Commercial-name alias. Exact classification depends on presentation."
+    },
+    {
+      hsCode: "080252",
+      labels: { tr: "Kabuksuz Antep fıstığı / pistachio", en: "Shelled pistachios" },
+      basis: "Commercial-name alias. Exact classification depends on presentation."
+    }
+  ],
+  "pistachios": [
+    {
+      hsCode: "080251",
+      labels: { tr: "Kabuklu Antep fıstığı / pistachio", en: "Pistachios in shell" },
+      basis: "Commercial plural alias. Exact classification depends on presentation."
+    },
+    {
+      hsCode: "080252",
+      labels: { tr: "Kabuksuz Antep fıstığı / pistachio", en: "Shelled pistachios" },
+      basis: "Commercial plural alias. Exact classification depends on presentation."
+    }
+  ],
+  "antep fistigi": [
+    {
+      hsCode: "080251",
+      labels: { tr: "Kabuklu Antep fıstığı", en: "Pistachios in shell" },
+      basis: "Multilingual search alias. Exact classification depends on presentation."
+    },
+    {
+      hsCode: "080252",
+      labels: { tr: "Kabuksuz Antep fıstığı", en: "Shelled pistachios" },
+      basis: "Multilingual search alias. Exact classification depends on presentation."
+    }
   ]
 };
 
-function normalizeText(value) {
+export function normalizeHsSearchText(value) {
   return String(value || "")
     .toLowerCase()
     .replace(/ı/g, "i")
@@ -94,6 +222,35 @@ function normalizeText(value) {
     .replace(/[^a-z0-9\s]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function normalizeText(value) {
+  return normalizeHsSearchText(value);
+}
+
+export function findCuratedHsAliases(query) {
+  const normalized = normalizeText(query);
+  if (!normalized) return [];
+
+  const rankedKeys = Object.keys(CURATED_ALIASES)
+    .filter(key => {
+      const normalizedKey = normalizeText(key);
+      if (!normalizedKey) return false;
+      if (normalized === normalizedKey) return true;
+      if (normalizedKey.length < 5) return false;
+      return ` ${normalized} `.includes(` ${normalizedKey} `);
+    })
+    .sort((a, b) => normalizeText(b).length - normalizeText(a).length);
+
+  const byCode = new Map();
+  for (const key of rankedKeys) {
+    for (const alias of CURATED_ALIASES[key] || []) {
+      if (!byCode.has(alias.hsCode)) {
+        byCode.set(alias.hsCode, { ...alias, matchedAlias: key });
+      }
+    }
+  }
+  return [...byCode.values()];
 }
 
 async function fetchCatalog(timeoutMs = 10000) {
@@ -158,7 +315,7 @@ export async function searchHs2022(query, limit = 10) {
   if (!normalized) return [];
 
   const catalog = await fetchCatalog();
-  const aliases = CURATED_ALIASES[normalized] || [];
+  const aliases = findCuratedHsAliases(normalized);
   const aliasByCode = new Map(aliases.map(x => [x.hsCode, x]));
 
   const scored = catalog
@@ -207,7 +364,8 @@ export async function searchHs2022(query, limit = 10) {
         matchType: "CURATED_ALIAS",
         aliasLabel: alias.labels?.en || null,
         localizedLabels: alias.labels || null,
-        classificationBasis: alias.basis
+        classificationBasis: alias.basis,
+        matchedAlias: alias.matchedAlias || null
       }));
     }
   }
@@ -221,7 +379,8 @@ export async function searchHs2022(query, limit = 10) {
         ...item,
         aliasLabel: alias.labels?.en || null,
         localizedLabels: alias.labels || null,
-        classificationBasis: alias.basis
+        classificationBasis: alias.basis,
+        matchedAlias: alias.matchedAlias || null
       };
     });
 }
