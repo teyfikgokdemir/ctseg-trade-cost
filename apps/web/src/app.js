@@ -513,7 +513,7 @@ function renderQuoteSummary(){
   document.querySelector('#matchedQuoteCount').textContent=String(matches.length);
   document.querySelector('#matchedQuoteAverage').textContent=avg?'$'+money(avg,0)+' / konteyner':'—';
   document.querySelector('#latestQuoteValue').textContent=latest?'$'+money(latest.rate,0)+' / konteyner':'—';
-  document.querySelector('#quoteDataStatus').textContent=matches.length>=3?'Güçlü veri':matches.length===2?'Orta veri':matches.length===1?'Tek teklif':'Veri yok';
+  document.querySelector('#quoteDataStatus').textContent=currentLanguage==='en'?(matches.length>=3?'Strong data':matches.length===2?'Moderate data':matches.length===1?'Single quote':'No data'):(matches.length>=3?'Güçlü veri':matches.length===2?'Orta veri':matches.length===1?'Tek teklif':'Veri yok');
 
   const list=document.querySelector('#quoteList');
   list.innerHTML=matches.slice(0,6).map(q=>`
@@ -521,7 +521,7 @@ function renderQuoteSummary(){
       <div><strong>${q.provider||'Forwarder'}</strong><span>${q.date} · ${q.containerType}</span></div>
       <b>$${money(q.rate,0)}</b>
       <button data-id="${q.id}" type="button">Sil</button>
-    </div>`).join('') || '<p class="empty">Bu rota ve konteyner tipi için kayıtlı geçerli teklif yok.</p>';
+    </div>`).join('') || (currentLanguage==='en'?'<p class="empty">No valid saved quote exists for this route and container type.</p>':'<p class="empty">Bu rota ve konteyner tipi için kayıtlı geçerli teklif yok.</p>');
   list.querySelectorAll('button[data-id]').forEach(btn=>btn.addEventListener('click',()=>{
     saveQuotes(loadQuotes().filter(q=>q.id!==btn.dataset.id));
     renderQuoteSummary();
@@ -533,7 +533,7 @@ document.querySelector('#saveQuote').addEventListener('click',()=>{
   const rate=positive('#quoteRate');
   const date=document.querySelector('#quoteDate').value||todayISO();
   const validUntil=document.querySelector('#quoteValidUntil').value||null;
-  if(!rate){alert('Teklif tutarını girin.');return}
+  if(!rate){alert(currentLanguage==='en'?'Enter the quote amount.':'Teklif tutarını girin.');return}
   const quotes=loadQuotes();
   quotes.push({
     id:String(Date.now()),
@@ -552,9 +552,9 @@ document.querySelector('#saveQuote').addEventListener('click',()=>{
 document.querySelector('#applyQuoteAverage').addEventListener('click',()=>{
   const matches=matchingQuotes();
   const avg=weightedQuoteAverage(matches);
-  if(!avg){alert('Bu rota için geçerli teklif bulunamadı.');return}
+  if(!avg){alert(currentLanguage==='en'?'No valid quote was found for this route.':'Bu rota için geçerli teklif bulunamadı.');return}
   const freight=[...document.querySelectorAll('.cost-row')].find(r=>/uluslararası navlun|international freight|freight/i.test(r.querySelector('.label').value));
-  if(!freight){alert('Uluslararası navlun satırı bulunamadı.');return}
+  if(!freight){alert(currentLanguage==='en'?'International freight row was not found.':'Uluslararası navlun satırı bulunamadı.');return}
   freight.querySelector('.rate').value=Math.round(avg);
   freight.querySelector('.source').value=matches.length===1?'QUOTE':'MARKET_AVG';
   refreshCalculatedAmounts();
@@ -564,7 +564,7 @@ renderQuoteSummary();
 document.querySelector('#calculate').addEventListener('click',()=>{
   const s=shipment();
   const price=positive('#price');
-  if(!s.count||!s.payload||!price){alert('Konteyner sayısı, net yük ve alış fiyatını kontrol edin.');return}
+  if(!s.count||!s.payload||!price){alert(currentLanguage==='en'?'Check container count, net payload and purchase price.':'Konteyner sayısı, net yük ve alış fiyatını kontrol edin.');return}
   const goods=goodsTotal();
   const costRows=[...document.querySelectorAll('.cost-row')];
   const costs=costRows.map(row=>({amount:calculateRow(row),source:row.querySelector('.source').value}));
@@ -600,13 +600,17 @@ document.querySelector('#calculate').addEventListener('click',()=>{
   document.querySelector('#estimateShare').textContent=money(estimateShare,1)+'%';
   const matches=matchingQuotes();
   const risky=estimateShare>20||matches.length===0;
-  document.querySelector('#commercialStatus').textContent=risky?'Doğrulama gerekli':'Daha güvenli';
-  document.querySelector('#commercialStatusMeta').textContent=risky?'Teklif vermeden önce kritik kalemleri doğrula':'Gerçek teklif/veri kapsamı daha iyi';
+  document.querySelector('#commercialStatus').textContent=currentLanguage==='en'?(risky?'Verification required':'Safer'):(risky?'Doğrulama gerekli':'Daha güvenli');
+  document.querySelector('#commercialStatusMeta').textContent=currentLanguage==='en'?(risky?'Verify critical items before quoting':'Better coverage of real quotes/data'):(risky?'Teklif vermeden önce kritik kalemleri doğrula':'Gerçek teklif/veri kapsamı daha iyi');
   const riskMessage=document.querySelector('#riskMessage');
   riskMessage.className='risk-message '+(risky?'warning':'ok');
   riskMessage.textContent=risky
-    ? 'Bu hesapta tahmini veri oranı veya doğrulanmış navlun verisi yetersiz. Ticari fiyat vermeden önce navlun ve kritik gümrük kalemlerini doğrulayın.'
-    : 'Bu senaryoda doğrulanmış veri kapsamı daha güçlü. Yine de teklif geçerlilik tarihlerini kontrol edin.';
+    ? (currentLanguage==='en'
+      ? 'Estimated-data share or verified freight coverage is insufficient. Verify freight and critical customs items before issuing a commercial quote.'
+      : 'Bu hesapta tahmini veri oranı veya doğrulanmış navlun verisi yetersiz. Ticari fiyat vermeden önce navlun ve kritik gümrük kalemlerini doğrulayın.')
+    : (currentLanguage==='en'
+      ? 'Verified data coverage is stronger in this scenario. Still check quote validity dates.'
+      : 'Bu senaryoda doğrulanmış veri kapsamı daha güçlü. Yine de teklif geçerlilik tarihlerini kontrol edin.');
 
   document.querySelector('#breakdownText').innerHTML=`
     <span>Ürün</span><strong>$${money(goods,0)}</strong>
@@ -770,18 +774,18 @@ async function loadFx(){
   const base=document.querySelector('#fxBase').value.trim().toUpperCase();
   const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
   if(!/^[A-Z]{3}$/.test(base)||!/^[A-Z]{3}$/.test(quote)){
-    rateEl.textContent='Geçersiz para birimi';metaEl.textContent='Örnek: USD, EUR, TRY';return;
+    rateEl.textContent=currentLanguage==='en'?'Invalid currency':'Geçersiz para birimi';metaEl.textContent=currentLanguage==='en'?'Example: USD, EUR, TRY':'Örnek: USD, EUR, TRY';return;
   }
-  button.disabled=true;button.textContent='Yükleniyor…';
+  button.disabled=true;button.textContent=currentLanguage==='en'?'Loading…':'Yükleniyor…';
   try{
     const response=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`,{cache:'no-store'});
     if(!response.ok) throw new Error();
     const data=await response.json();
     rateEl.textContent=`1 ${base} = ${money(Number(data.rate),4)} ${quote}`;
-    const dateText=data.date?new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')):'Güncel';
+    const dateText=data.date?new Intl.DateTimeFormat(currentLanguage==='en'?'en-US':'tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')):(currentLanguage==='en'?'Current':'Güncel');
     metaEl.textContent=`${dateText} · ${data.sourceName||'Referans kur'}`;
-  }catch{rateEl.textContent='Kur verisi alınamadı';metaEl.textContent='API bağlantısı henüz aktif değil veya deploy tamamlanmadı.'}
-  finally{button.disabled=false;button.textContent='Kuru yenile'}
+  }catch{rateEl.textContent=currentLanguage==='en'?'Exchange-rate data unavailable':'Kur verisi alınamadı';metaEl.textContent=currentLanguage==='en'?'The API connection is not active yet or deployment is incomplete.':'API bağlantısı henüz aktif değil veya deploy tamamlanmadı.'}
+  finally{button.disabled=false;button.textContent=currentLanguage==='en'?'Refresh rate':'Kuru yenile'}
 }
 const languageSelect=document.querySelector('#languageSelect');
 languageSelect.value=currentLanguage;
@@ -798,7 +802,7 @@ loadFx();
 
 async function calculateRoute(){
   const btn=document.querySelector('#calculateRoute');
-  btn.disabled=true;btn.textContent='Hesaplanıyor…';document.querySelector('#routeStatus').textContent='Yükleniyor';
+  btn.disabled=true;btn.textContent=currentLanguage==='en'?'Calculating…':'Hesaplanıyor…';document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Loading':'Yükleniyor';
   try{
     const params=new URLSearchParams({
       origin:document.querySelector('#origin').value.trim(),
@@ -810,7 +814,7 @@ async function calculateRoute(){
     const data=await res.json();
     if(!res.ok){
       if(data.status==='NOT_CONFIGURED'){
-        document.querySelector('#routeStatus').textContent='API anahtarı gerekli';
+        document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'API key required':'API anahtarı gerekli';
         document.querySelector('#routeDistance').textContent='—';
         document.querySelector('#routeDuration').textContent='—';
         document.querySelector('#routeTolls').textContent='—';
@@ -823,10 +827,10 @@ async function calculateRoute(){
     const tollEntries=Object.entries(data.tollTotals||{});
     document.querySelector('#routeTolls').textContent=tollEntries.length
       ? tollEntries.map(([c,v])=>money(v,2)+' '+c).join(' + ')
-      : (data.tollDataAvailable ? 'Yol ücreti yok / veri yok' : 'Ücretsiz kaynakta yok');
-    document.querySelector('#routeStatus').textContent=data.truckProfileApplied?'Doğrulanmış kamyon rotası':'Ücretsiz rota tahmini';
-  }catch{document.querySelector('#routeStatus').textContent='Rota alınamadı'}
-  finally{btn.disabled=false;btn.textContent='Rotayı hesapla'}
+      : (data.tollDataAvailable ? (currentLanguage==='en'?'No toll / no data':'Yol ücreti yok / veri yok') : (currentLanguage==='en'?'Unavailable from free source':'Ücretsiz kaynakta yok'));
+    document.querySelector('#routeStatus').textContent=currentLanguage==='en'?(data.truckProfileApplied?'Verified truck route':'Free route estimate'):(data.truckProfileApplied?'Doğrulanmış kamyon rotası':'Ücretsiz rota tahmini');
+  }catch{document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Route unavailable':'Rota alınamadı'}
+  finally{btn.disabled=false;btn.textContent=currentLanguage==='en'?'Calculate route':'Rotayı hesapla'}
 }
 document.querySelector('#calculateRoute').addEventListener('click',calculateRoute);
 
@@ -834,7 +838,7 @@ document.querySelector('#calculateRoute').addEventListener('click',calculateRout
 function buildPrintReport(){
   const s=shipment();
   const get=id=>document.querySelector(id)?.textContent?.trim()||'—';
-  document.querySelector('#printDate').textContent=new Intl.DateTimeFormat('tr-TR',{dateStyle:'long',timeStyle:'short'}).format(new Date());
+  document.querySelector('#printDate').textContent=new Intl.DateTimeFormat(currentLanguage==='en'?'en-US':'tr-TR',{dateStyle:'long',timeStyle:'short'}).format(new Date());
   document.querySelector('#printProduct').textContent=document.querySelector('#productName').value||'—';
   document.querySelector('#printHs').textContent=document.querySelector('#hsCode').value||'—';
   document.querySelector('#printOriginCountry').textContent=selectedCountryName('#originCountry');
@@ -861,7 +865,7 @@ function buildPrintReport(){
 
 document.querySelector('#printReport').addEventListener('click',()=>{
   if(document.querySelector('#results').hidden){
-    alert('Önce maliyeti hesaplayın.');
+    alert(currentLanguage==='en'?'Calculate the cost first.':'Önce maliyeti hesaplayın.');
     return;
   }
   buildPrintReport();
