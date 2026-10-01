@@ -1,12 +1,12 @@
 {
   "name": "trade-cost-platform",
   "private": true,
-  "version": "0.9.8",
+  "version": "0.9.9",
   "type": "module",
   "scripts": {
     "test": "node --test packages/core/test/*.test.js",
     "check:web": "node --check apps/web/src/app.js",
-    "check:functions": "node --check functions/api/fx.js && node --check functions/api/health.js && node --check functions/api/route.js && node --check functions/api/tariff.js && node --check functions/api/hs.js && node --check functions/api/tax.js && node --check functions/api/countries.js && node --check packages/providers/src/wto.js && node --check packages/providers/src/wits.js && node --check packages/providers/src/un-hs2022.js && node --check packages/core/src/tax.js && node --check packages/core/src/global-tax.js && node --check packages/core/src/trade-route.js && node --check packages/core/src/incoterms.js && node --check packages/rules/src/registry.js && node --check packages/rules/src/tr.js && node --check functions/api/freight-benchmark.js && node --check packages/core/src/freight.js && node --check functions/api/quotes.js && node --check functions/api/calculations.js && node --check packages/db/src/d1.js",
+    "check:functions": "node --check functions/api/fx.js && node --check functions/api/health.js && node --check functions/api/route.js && node --check functions/api/tariff.js && node --check functions/api/hs.js && node --check functions/api/tax.js && node --check functions/api/countries.js && node --check packages/providers/src/wto.js && node --check packages/providers/src/wits.js && node --check packages/providers/src/un-hs2022.js && node --check packages/core/src/tax.js && node --check packages/core/src/global-tax.js && node --check packages/core/src/trade-route.js && node --check packages/core/src/incoterms.js && node --check packages/core/src/customs-valuation.js && node --check packages/rules/src/registry.js && node --check packages/rules/src/tr.js && node --check functions/api/freight-benchmark.js && node --check packages/core/src/freight.js && node --check functions/api/quotes.js && node --check functions/api/calculations.js && node --check packages/db/src/d1.js",
     "check": "npm run check:web && npm run check:functions && npm test",
     "demo": "node packages/core/src/demo.js",
     "deploy": "wrangler deploy",
