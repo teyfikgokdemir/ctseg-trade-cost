@@ -92,12 +92,20 @@ export function calculateLandedCost(input) {
   const tariffDecision = input.tariff?.normalized?.appliedRateDecision;
   const hasDutyLine = rawCosts.some(c => c.code === 'DUTY') || taxLines.some(c => c.code === 'DUTY');
   if (!hasDutyLine && Number.isFinite(Number(tariffDecision?.rate))) {
+    const customsValue = Number(input.customsValuation?.value);
+    const customsVerified = input.customsValuation?.status === 'VERIFIED'
+      && input.customsValuation?.requiresVerification !== true;
+
+    if (!Number.isFinite(customsValue) || customsValue < 0 || !customsVerified) {
+      throw new Error('Verified customs valuation is required before applying tariff duty');
+    }
+
     rawCosts.push({
       code: 'DUTY',
       label: 'Import duty',
-      calc: 'pct_customs_base',
+      calc: 'pct_customs_value',
       rate: Number(tariffDecision.rate),
-      baseCodes: ['GOODS', 'FREIGHT_INTL', 'INSURANCE'],
+      customsValue,
       sourceType: SourceType.OFFICIAL,
       sourceName: input.tariff.sourceName ?? 'World Trade Organization',
       sourceYear: input.tariff.normalized?.resolvedYear ?? null,
@@ -122,6 +130,12 @@ export function calculateLandedCost(input) {
 
     if (cost.calc === 'pct_goods') {
       amount = goodsTotal * (cost.rate / 100);
+    }
+
+    if (cost.calc === 'pct_customs_value') {
+      const base = Number(cost.customsValue);
+      assertPositive(base, cost.code + '.customsValue');
+      amount = base * (cost.rate / 100);
     }
 
     if (cost.calc === 'pct_customs_base' || cost.calc === 'pct_codes') {
