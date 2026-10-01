@@ -194,3 +194,60 @@ test('global trade chain accepts any valid ISO2 country pair and rejects invalid
     transportMode: "SPACE"
   }), /Unsupported transportMode/);
 });
+
+
+test('global multi-tax model requires verified rates and explicit bases', async () => {
+  const { createVerifiedGlobalTaxLine, GlobalTaxType } = await import("../src/global-tax.js");
+
+  assert.throws(() => createVerifiedGlobalTaxLine({
+    country: "DE",
+    type: GlobalTaxType.VAT_GST,
+    rate: null,
+    baseCodes: ["GOODS"]
+  }), /verified non-negative tax rate/i);
+
+  assert.throws(() => createVerifiedGlobalTaxLine({
+    country: "DE",
+    type: GlobalTaxType.VAT_GST,
+    rate: 19,
+    baseCodes: []
+  }), /baseCodes are required/i);
+});
+
+test('global multi-tax line integrates with landed-cost engine', async () => {
+  const { createVerifiedGlobalTaxLine, GlobalTaxType } = await import("../src/global-tax.js");
+  const tax = createVerifiedGlobalTaxLine({
+    country: "DE",
+    type: GlobalTaxType.VAT_GST,
+    code: "DE_IMPORT_VAT",
+    label: "Germany import VAT",
+    rate: 19,
+    baseCodes: ["GOODS", "DUTY"],
+    sourceType: SourceType.MANUAL
+  });
+
+  const r = calculateLandedCost({
+    product: { quantity: 1, unit: 'mt' },
+    purchase: { price: 1000, priceUnit: 'usd/mt', sourceType: SourceType.QUOTE },
+    costs: [
+      { code: 'DUTY', label: 'Duty', amount: 100, sourceType: SourceType.MANUAL }
+    ],
+    taxes: [tax]
+  });
+
+  const vat = r.costs.find(x => x.code === "DE_IMPORT_VAT");
+  assert.ok(vat);
+  assert.equal(vat.amount, 209);
+  assert.equal(r.total, 1309);
+});
+
+test('unresolved global tax requirement never invents a zero rate', async () => {
+  const { createUnresolvedGlobalTaxRequirement, GlobalTaxType } = await import("../src/global-tax.js");
+  const req = createUnresolvedGlobalTaxRequirement({
+    country: "JP",
+    type: GlobalTaxType.VAT_GST
+  });
+  assert.equal(req.rate, null);
+  assert.equal(req.requiresRateVerification, true);
+  assert.equal(req.rateStatus, "UNRESOLVED");
+});
