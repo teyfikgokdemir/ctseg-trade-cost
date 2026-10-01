@@ -49,14 +49,20 @@
             <option value="">Ülkeler yükleniyor…</option>
           </select>
         </label>
-
-        <label>Çıkış noktası<input id="origin" value="Edirne, Türkiye" /></label>
-        <label>Teslim noktası<input id="destination" value="Herat, Afganistan" /></label>
+        <label>İhracat ülkesi
+          <select id="exportCountry">
+            <option value="">Ülkeler yükleniyor…</option>
+          </select>
+        </label>
         <label>İthalat ülkesi
           <select id="importCountry">
             <option value="">Ülkeler yükleniyor…</option>
           </select>
         </label>
+
+        <label>Çıkış noktası<input id="origin" placeholder="Şehir, liman, depo veya sınır kapısı" /></label>
+        <label>Transit ülkeler<input id="transitCountries" placeholder="Opsiyonel · ISO2 kodları, örn. GE,AZ" /></label>
+        <label>Teslim noktası<input id="destination" placeholder="Şehir, liman, depo veya adres" /></label>
         <label>Incoterm
           <select id="incoterm">
             <option>EXW</option><option>FCA</option><option>FOB</option>
