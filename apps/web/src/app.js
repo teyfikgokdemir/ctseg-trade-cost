@@ -280,8 +280,10 @@ async function calculateRoute(){
     document.querySelector('#routeDistance').textContent=money(data.distanceKm,0)+' km';
     document.querySelector('#routeDuration').textContent=money(data.durationHours,1)+' saat';
     const tollEntries=Object.entries(data.tollTotals||{});
-    document.querySelector('#routeTolls').textContent=tollEntries.length?tollEntries.map(([c,v])=>money(v,2)+' '+c).join(' + '):'Yok / veri yok';
-    document.querySelector('#routeStatus').textContent='Canlı rota';
+    document.querySelector('#routeTolls').textContent=tollEntries.length
+      ? tollEntries.map(([c,v])=>money(v,2)+' '+c).join(' + ')
+      : (data.tollDataAvailable ? 'Yol ücreti yok / veri yok' : 'Ücretsiz kaynakta yok');
+    document.querySelector('#routeStatus').textContent=data.truckProfileApplied?'Doğrulanmış kamyon rotası':'Ücretsiz rota tahmini';
   }catch{document.querySelector('#routeStatus').textContent='Rota alınamadı'}
   finally{btn.disabled=false;btn.textContent='Rotayı hesapla'}
 }
