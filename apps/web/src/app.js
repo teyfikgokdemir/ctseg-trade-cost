@@ -72,17 +72,24 @@ function parsePositiveNumber(selector) {
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
+function syncLitres() {
+  const mt = Number(document.querySelector('#quantity').value) || 0;
+  document.querySelector('#litres').value = Math.round(mt * 1000);
+}
+
+document.querySelector('#quantity').addEventListener('input', syncLitres);
+syncLitres();
+
 document.querySelector('#calculate').addEventListener('click', () => {
   const mt = parsePositiveNumber('#quantity');
-  const density = parsePositiveNumber('#density');
   const price = parsePositiveNumber('#price');
 
-  if (!mt || !density || !price) {
-    alert('Miktar, yoğunluk ve alış fiyatı alanlarını kontrol edin.');
+  if (!mt || !price) {
+    alert('Miktar ve alış fiyatı alanlarını kontrol edin.');
     return;
   }
 
-  const litres = (mt * 1000) / density;
+  const litres = mt * 1000;
   const goods = litres * price;
 
   const costs = [...document.querySelectorAll('.cost-row')].map(row => ({
@@ -124,7 +131,78 @@ document.querySelector('#calculate').addEventListener('click', () => {
 
   document.querySelector('#goodsPerLitre').textContent = '$' + money(goods / litres, 4);
   document.querySelector('#extraPerLitre').textContent = '$' + money(extra / litres, 4);
-  document.querySelector('#perMt').textContent = '$' + money(total / mt, 2);
+  document.querySelector('#orderTotal').textContent = '
+
+  document.querySelector('#breakdownText').innerHTML = `
+    <span>EXW ürün</span>
+    <strong>$${money(goods, 0)}</strong>
+    <span>+</span>
+    <span>EXW sonrası ek maliyet</span>
+    <strong>$${money(extra, 0)}</strong>
+    <span>=</span>
+    <span>Nihai toplam</span>
+    <strong>$${money(total, 0)}</strong>
+  `;
+
+  document.querySelector('#range').textContent =
+    '$' + money(low, 0) + ' – $' + money(high, 0);
+
+  document.querySelector('#routeText').textContent =
+    `${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${mt} MT`;
+
+  document.querySelector('#results').hidden = false;
+});
+
+async function loadFx() {
+  const button = document.querySelector('#refreshFx');
+  const rateEl = document.querySelector('#fxRate');
+  const metaEl = document.querySelector('#fxMeta');
+
+  const base = document.querySelector('#fxBase').value.trim().toUpperCase();
+  const quote = document.querySelector('#fxQuote').value.trim().toUpperCase();
+
+  if (!/^[A-Z]{3}$/.test(base) || !/^[A-Z]{3}$/.test(quote)) {
+    rateEl.textContent = 'Geçersiz para birimi';
+    metaEl.textContent = 'Örnek: USD, EUR, TRY';
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = 'Yükleniyor…';
+  rateEl.textContent = 'Yükleniyor…';
+
+  try {
+    const response = await fetch(
+      `/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`,
+      { cache: 'no-store' }
+    );
+
+    if (!response.ok) throw new Error('Kur verisi alınamadı');
+
+    const data = await response.json();
+
+    rateEl.textContent = `1 ${base} = ${money(Number(data.rate), 4)} ${quote}`;
+
+    const dateText = data.date
+      ? new Intl.DateTimeFormat('tr-TR', { dateStyle: 'medium' })
+          .format(new Date(data.date + 'T12:00:00Z'))
+      : 'Güncel';
+
+    metaEl.textContent =
+      `${dateText} · ${data.sourceName || 'Referans kur'}`;
+  } catch (error) {
+    rateEl.textContent = 'Kur verisi alınamadı';
+    metaEl.textContent =
+      'API bağlantısı henüz aktif değil veya deploy tamamlanmadı.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Kuru yenile';
+  }
+}
+
+document.querySelector('#refreshFx').addEventListener('click', loadFx);
+loadFx();
+ + money(total, 0);
   document.querySelector('#confidence').textContent = confidence + '%';
 
   document.querySelector('#breakdownText').innerHTML = `
