@@ -71,6 +71,20 @@ const STATIC_TRANSLATIONS={
   'Doğrulanmış preferential oran (%)':'Verified preferential rate (%)',
   'Scheme / belge referansı':'Scheme / evidence reference',
   'Uygunluk doğrulanana kadar MFN güvenli varsayılan olarak kalır.':'MFN remains the safe default until preferential eligibility is verified.',
+  'Ticaret önlemleri / ek gümrük yükleri':'Trade remedies / additional duties',
+  'Anti-damping, countervailing, safeguard ve benzeri ek yükler standart gümrük vergisinden ayrı doğrulanır. Oran ve referans olmadan uygulanmaz.':'Anti-dumping, countervailing, safeguard and similar measures are verified separately from standard customs duty. They are never applied without a verified rate and reference.',
+  'Önlem türü':'Measure type',
+  'Anti-damping':'Anti-dumping',
+  'Diğer ticaret önlemi':'Other trade remedy',
+  'Hesaplama temeli':'Calculation basis',
+  'Gümrük kıymetinin %':'% of customs value',
+  'Ürün bedelinin %':'% of goods value',
+  'MT başına':'Per MT',
+  'Sabit tutar':'Fixed amount',
+  'Doğrulanmış oran / tutar':'Verified rate / amount',
+  'Resmî karar / dava / belge referansı':'Official decision / case / document reference',
+  'Doğrulanmış önlemi ekle':'Add verified measure',
+  'HS, menşe ve ithalat ülkesi değişirse mevcut remedy satırları yeniden doğrulanmalıdır.':'Existing remedy rows must be re-verified if HS, origin or import country changes.',
   'İthalat vergileri':'Import taxes',
   'Hedef ülkeye göre vergi desteğini gösterir. Sistem doğrulanmamış vergi oranını otomatik kullanmaz.':'Shows tax support for the destination country. The system never applies an unverified tax rate automatically.',
   'Vergi bilgisini yenile':'Refresh tax information',
@@ -551,6 +565,110 @@ function findImportTaxRow(){
     .find(r=>/ithalat kdv|import vat|local tax|yerel vergi/i.test(r.querySelector('.label').value));
 }
 
+const TRADE_REMEDY_LABELS={
+  ANTI_DUMPING:{tr:'Anti-damping vergisi',en:'Anti-dumping duty'},
+  COUNTERVAILING:{tr:'Countervailing duty',en:'Countervailing duty'},
+  SAFEGUARD:{tr:'Safeguard ek yükü',en:'Safeguard duty'},
+  ADDITIONAL_TARIFF:{tr:'Additional tariff',en:'Additional tariff'},
+  RETALIATORY_TARIFF:{tr:'Retaliatory tariff',en:'Retaliatory tariff'},
+  OTHER_TRADE_REMEDY:{tr:'Diğer ticaret önlemi',en:'Other trade remedy'}
+};
+
+function currentTradeRemedyKey(){
+  return [
+    document.querySelector('#hsCode')?.value.trim()||'',
+    document.querySelector('#originCountry')?.value||'',
+    document.querySelector('#importCountry')?.value||''
+  ].join(':');
+}
+
+function tradeRemedyMethod(basis){
+  if(basis==='CUSTOMS_VALUE_PERCENT') return 'PCT_CUSTOMS';
+  if(basis==='GOODS_VALUE_PERCENT') return 'PCT_GOODS';
+  if(basis==='PER_MT') return 'PER_MT';
+  return 'FIXED';
+}
+
+function refreshTradeRemedyValidity(){
+  const currentKey=currentTradeRemedyKey();
+  const remedyRows=[...document.querySelectorAll('.cost-row')].filter(row=>/^REMEDY_/.test(row.dataset.code||''));
+  let stale=0;
+  for(const row of remedyRows){
+    const isStale=!row.dataset.remedyKey || row.dataset.remedyKey!==currentKey;
+    row.classList.toggle('stale-remedy',isStale);
+    if(isStale) stale++;
+  }
+  const note=document.querySelector('#tradeRemedyNote');
+  if(note){
+    note.textContent=stale
+      ? (currentLanguage==='en'
+        ? stale+' trade-remedy row(s) no longer match the current HS/origin/import route. Remove and re-add them after verification.'
+        : stale+' adet ticaret önlemi mevcut HS/menşe/ithalat rotasıyla artık eşleşmiyor. Doğruladıktan sonra kaldırıp yeniden ekleyin.')
+      : (currentLanguage==='en'
+        ? 'Existing remedy rows must be re-verified if HS, origin or import country changes.'
+        : 'HS, menşe ve ithalat ülkesi değişirse mevcut remedy satırları yeniden doğrulanmalıdır.');
+  }
+}
+
+function addVerifiedTradeRemedy(){
+  const hs=document.querySelector('#hsCode')?.value.trim()||'';
+  const origin=document.querySelector('#originCountry')?.value||'';
+  const destination=document.querySelector('#importCountry')?.value||'';
+  if(!/^\d{6}$/.test(hs)||!origin||!destination){
+    alert(currentLanguage==='en'
+      ? 'Select a valid HS6, country of origin and import country before adding a trade remedy.'
+      : 'Ticaret önlemi eklemeden önce geçerli HS6, menşe ülke ve ithalat ülkesini seçin.');
+    return;
+  }
+
+  const type=document.querySelector('#tradeRemedyType')?.value||'OTHER_TRADE_REMEDY';
+  const basis=document.querySelector('#tradeRemedyBasis')?.value||'CUSTOMS_VALUE_PERCENT';
+  const rateRaw=document.querySelector('#tradeRemedyRate')?.value.trim()||'';
+  const rate=rateRaw===''?null:Number(rateRaw);
+  const source=document.querySelector('#tradeRemedySource')?.value||'MANUAL';
+  const reference=document.querySelector('#tradeRemedyReference')?.value.trim()||'';
+
+  if(rate===null||!Number.isFinite(rate)||rate<0){
+    alert(currentLanguage==='en'?'Enter a verified non-negative remedy rate or amount.':'Doğrulanmış sıfır veya pozitif remedy oranı/tutarı girin.');
+    document.querySelector('#tradeRemedyRate')?.focus();
+    return;
+  }
+  if(!reference){
+    alert(currentLanguage==='en'?'An official decision, case or document reference is required.':'Resmî karar, dava veya belge referansı gerekli.');
+    document.querySelector('#tradeRemedyReference')?.focus();
+    return;
+  }
+
+  if(basis==='CUSTOMS_VALUE_PERCENT' && document.querySelector('#customsValuationStatus')?.value!=='VERIFIED'){
+    alert(currentLanguage==='en'
+      ? 'Verify customs value before adding a customs-value-based trade remedy.'
+      : 'Gümrük kıymeti bazlı bir ticaret önlemi eklemeden önce gümrük kıymetini doğrulayın.');
+    document.querySelector('#customsValuationStatus')?.focus();
+    return;
+  }
+
+  const labels=TRADE_REMEDY_LABELS[type]||TRADE_REMEDY_LABELS.OTHER_TRADE_REMEDY;
+  const label=currentLanguage==='en'?labels.en:labels.tr;
+  const code='REMEDY_'+type+'_'+Date.now();
+  addRow([
+    label,
+    tradeRemedyMethod(basis),
+    rate,
+    source,
+    code,
+    {
+      remedyType:type,
+      remedyBasis:basis,
+      remedyReference:reference,
+      remedyKey:currentTradeRemedyKey()
+    }
+  ]);
+  document.querySelector('#tradeRemedyRate').value='';
+  document.querySelector('#tradeRemedyReference').value='';
+  refreshTradeRemedyValidity();
+  refreshCalculatedAmounts();
+}
+
 const ADDITIONAL_TAX_DEFAULTS={
   VAT_GST:{tr:'İthalat KDV / GST (doğrulanacak)',en:'Import VAT / GST (to be verified)',method:'PCT_IMPORT_TAX',code:'IMPORT_TAX'},
   EXCISE:{tr:'ÖTV / Excise (doğrulanacak)',en:'Excise tax (to be verified)',method:'PER_MT',code:'TAX_EXCISE'},
@@ -605,10 +723,14 @@ function addSelectedImportTax(){
   rows[rows.length-1]?.querySelector('.rate')?.focus();
 }
 
-function addRow([label='',method='FIXED',rate=0,source='ESTIMATE',code='OTHER']={}){
+function addRow([label='',method='FIXED',rate=0,source='ESTIMATE',code='OTHER',meta=null]={}){
   const div=document.createElement('div');
   div.className='cost-row';
   div.dataset.code=code||'OTHER';
+  if(meta?.remedyType) div.dataset.remedyType=meta.remedyType;
+  if(meta?.remedyBasis) div.dataset.remedyBasis=meta.remedyBasis;
+  if(meta?.remedyReference) div.dataset.remedyReference=meta.remedyReference;
+  if(meta?.remedyKey) div.dataset.remedyKey=meta.remedyKey;
   div.innerHTML=`
     <input class="label" value="${label}">
     <select class="method">${Object.keys(methodLabelsTr).map(k=>`<option value="${k}" ${k===method?'selected':''}>${(currentLanguage==='en'?methodLabelsEn:methodLabelsTr)[k]}</option>`).join('')}</select>
@@ -1255,7 +1377,7 @@ async function restoreCalculationSnapshot(item){
   if(Array.isArray(input.costRows)&&input.costRows.length){
     rows.replaceChildren();
     for(const row of input.costRows){
-      addRow([row.label,row.method,row.rate,row.source,row.code||'OTHER']);
+      addRow([row.label,row.method,row.rate,row.source,row.code||'OTHER',row.remedy||null]);
     }
   }
 
@@ -1613,6 +1735,32 @@ document.querySelector('#calculate').addEventListener('click',()=>{
       return;
     }
   }
+  const remedyRows=costRows.filter(row=>/^REMEDY_/.test(row.dataset.code||''));
+  const currentRemedyKey=currentTradeRemedyKey();
+  const invalidRemedy=remedyRows.find(row=>{
+    const rateRaw=row.querySelector('.rate').value.trim();
+    const source=row.querySelector('.source').value;
+    return !row.dataset.remedyReference
+      || row.dataset.remedyKey!==currentRemedyKey
+      || rateRaw===''
+      || !['MANUAL','OFFICIAL','LIVE'].includes(source);
+  });
+  if(invalidRemedy){
+    alert(currentLanguage==='en'
+      ? 'A trade-remedy row is missing verification or no longer matches the current HS/origin/import route. Remove and re-add it after verification.'
+      : 'Bir ticaret önlemi satırı doğrulama bilgisi eksik veya mevcut HS/menşe/ithalat rotasıyla artık eşleşmiyor. Doğruladıktan sonra kaldırıp yeniden ekleyin.');
+    invalidRemedy.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  const customsBasedRemedy=remedyRows.find(row=>row.dataset.remedyBasis==='CUSTOMS_VALUE_PERCENT');
+  if(customsBasedRemedy && customsValuation.status!=='VERIFIED'){
+    alert(currentLanguage==='en'
+      ? 'Customs value must be verified before customs-value-based trade remedies can be calculated.'
+      : 'Gümrük kıymeti bazlı ticaret önlemleri hesaplanmadan önce gümrük kıymeti doğrulanmalıdır.');
+    document.querySelector('#customsValuationStatus').focus();
+    return;
+  }
+
   const unresolvedAdditionalTax=costRows.find(row=>
     /^TAX_/.test(row.dataset.code||'') &&
     /doğrulanacak|to be verified/i.test(row.querySelector('.label').value)
@@ -1689,7 +1837,13 @@ document.querySelector('#calculate').addEventListener('click',()=>{
     method:row.querySelector('.method').value,
     rate:Number(row.querySelector('.rate').value)||0,
     source:row.querySelector('.source').value,
-    code:row.dataset.code||'OTHER'
+    code:row.dataset.code||'OTHER',
+    remedy:/^REMEDY_/.test(row.dataset.code||'') ? {
+      remedyType:row.dataset.remedyType||null,
+      remedyBasis:row.dataset.remedyBasis||null,
+      remedyReference:row.dataset.remedyReference||null,
+      remedyKey:row.dataset.remedyKey||null
+    } : null
   }));
 
   persistCalculationSnapshot({
@@ -1933,7 +2087,8 @@ document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
 document.querySelector('#refreshTaxRule').addEventListener('click',loadCountryTaxProfile);
 document.querySelector('#applyVerifiedImportTax')?.addEventListener('click',applyVerifiedImportTaxRate);
 document.querySelector('#addAdditionalImportTax')?.addEventListener('click',addSelectedImportTax);
-document.querySelector('#originCountry').addEventListener('change',loadTariff);
+document.querySelector('#addTradeRemedy')?.addEventListener('click',addVerifiedTradeRemedy);
+document.querySelector('#originCountry').addEventListener('change',()=>{loadTariff();refreshTradeRemedyValidity();});
 document.querySelector('#exportCountry').addEventListener('change',()=>{});
 document.querySelector('#importCountry').addEventListener('change',()=>{
   invalidateCustomsValuation();
@@ -1942,6 +2097,7 @@ document.querySelector('#importCountry').addEventListener('change',()=>{
   if(taxSelect) taxSelect.value=document.querySelector('#importCountry').value;
   loadTariff();
   loadCountryTaxProfile();
+  refreshTradeRemedyValidity();
 });
 document.querySelector('#taxRuleCountrySelect').addEventListener('change',()=>{
   invalidateCustomsValuation();
@@ -2081,3 +2237,6 @@ document.querySelector('#priceUnit')?.addEventListener('change',()=>{
   updateCustomsValuation();
 });
 updateCustomsValuation();
+
+document.querySelector('#hsCode')?.addEventListener('input',refreshTradeRemedyValidity);
+refreshTradeRemedyValidity();
