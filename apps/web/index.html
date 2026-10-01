@@ -30,12 +30,12 @@
       <div class="panel-head">
         <div>
           <h2>Sevkiyat ve ürün</h2>
-          <p class="section-help">Nakliye konteyner bazlı; ürün ve vergi hesapları kendi gerçek matrahına göre çalışır.</p>
+          <p class="section-help">Nakliye taşıma modu ve ekipman bazlı; ürün ve vergi hesapları kendi gerçek matrahına göre çalışır.</p>
         </div>
       </div>
 
       <div class="grid inputs">
-        <label>Ürün<input id="productName" value="Ayçiçek yağı" /></label>
+        <label>Ürün<input id="productName" placeholder="Ürün adı veya ticari tanım" /></label>
         <label class="hs-field">HS Code
           <div class="hs-input-wrap">
             <input id="hsCode" autocomplete="off" placeholder="Kod veya ürün adı yazın…" />
@@ -271,7 +271,7 @@
 
       <div class="quote-form">
         <label>Firma / forwarder<input id="quoteProvider" placeholder="Örn. ABC Lojistik" /></label>
-        <label>USD / konteyner<input id="quoteRate" type="number" min="0" step="1" placeholder="5600" /></label>
+        <label>USD / ekipman<input id="quoteRate" type="number" min="0" step="1" /></label>
         <label>Teklif tarihi<input id="quoteDate" type="date" /></label>
         <label>Geçerlilik sonu<input id="quoteValidUntil" type="date" /></label>
         <button id="saveQuote" type="button">Teklifi kaydet</button>
