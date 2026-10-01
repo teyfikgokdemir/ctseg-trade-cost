@@ -244,3 +244,101 @@ select option:disabled{
 .backhaul-panel .route-stats strong{
   font-variant-numeric:tabular-nums;
 }
+
+
+.workspace-nav{
+  display:flex;
+  gap:8px;
+  margin:0 0 16px;
+  padding:6px;
+  border:1px solid #203234;
+  border-radius:14px;
+  background:#0d1617;
+  position:sticky;
+  top:8px;
+  z-index:20;
+}
+.workspace-nav a{
+  flex:1;
+  text-align:center;
+  padding:10px 12px;
+  border-radius:10px;
+  color:#8fa2a3;
+  text-decoration:none;
+  font-size:13px;
+  font-weight:700;
+}
+.workspace-nav a.active{
+  background:#173031;
+  color:#dcebea;
+}
+.quick-calc-panel{
+  padding:26px;
+}
+.quick-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+}
+.quick-grid label{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+.quantity-inline{
+  display:grid;
+  grid-template-columns:1fr 110px;
+  gap:8px;
+}
+.quick-primary{
+  width:100%;
+  margin-top:18px;
+  min-height:52px;
+}
+.quick-status{
+  margin-top:12px;
+  padding:12px 14px;
+  border-radius:12px;
+  background:#101b1c;
+  border:1px solid #213638;
+  color:#9fb0b1;
+  font-size:13px;
+  line-height:1.5;
+}
+.quick-status.warning{border-color:#5b4931;color:#d7bd90}
+.quick-status.error{border-color:#653b3b;color:#e0a0a0}
+.quick-status.verified{border-color:#2c5a50;color:#b9ddd4}
+.quick-status a{color:#c8e6df}
+.advanced-details{
+  margin:0;
+}
+.advanced-details > summary{
+  display:none;
+}
+.result-detail-links{
+  grid-column:1/-1;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:8px;
+}
+.result-detail-links a{
+  text-decoration:none;
+  padding:9px 12px;
+  border:1px solid #294143;
+  border-radius:10px;
+  color:#bfe0db;
+  background:#102021;
+  font-size:12px;
+  font-weight:700;
+}
+@media(max-width:980px){
+  .quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .workspace-nav{overflow-x:auto;position:static}
+  .workspace-nav a{min-width:140px}
+  .quick-grid{grid-template-columns:1fr}
+  .quantity-inline{grid-template-columns:1fr 100px}
+  .quick-calc-panel{padding:18px}
+}
