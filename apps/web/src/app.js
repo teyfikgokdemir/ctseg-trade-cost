@@ -1617,6 +1617,13 @@ document.querySelector('#calculate').addEventListener('click',()=>{
       importCountryIso2:selectedCountryIso2('#importCountry'),
       incoterm:document.querySelector('#incoterm').value
     },
+    preferentialTariff:{
+      eligibilityStatus:document.querySelector('#preferentialEligibility')?.value||'NOT_CONFIRMED',
+      candidateRate:lastTariffData?.normalized?.preferentialCandidate?.rate??null,
+      verifiedRate:document.querySelector('#verifiedPreferentialRate')?.value===''?null:Number(document.querySelector('#verifiedPreferentialRate')?.value),
+      schemeReference:document.querySelector('#preferentialSchemeReference')?.value.trim()||null,
+      appliedDecision:preferentialDecision()
+    },
     customsValuation:{
       transactionValue:customsValuation.transactionValue,
       additions:customsValuation.additions,
