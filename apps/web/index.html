@@ -26,7 +26,14 @@
       </div>
     </header>
 
-    <section class="panel quick-calc-panel">
+    <nav class="workspace-nav" aria-label="Çalışma alanları">
+      <a href="?view=calculator" data-workspace-link="calculator">Ana hesap</a>
+      <a href="?view=logistics" data-workspace-link="logistics">Lojistik & Navlun</a>
+      <a href="?view=customs" data-workspace-link="customs">Gümrük & Vergiler</a>
+      <a href="?view=history" data-workspace-link="history">Geçmiş</a>
+    </nav>
+
+    <section class="panel quick-calc-panel workspace-section workspace-calculator">
       <div class="panel-head">
         <div>
           <h2>Hızlı maliyet hesabı</h2>
@@ -74,7 +81,7 @@
 
     <details class="advanced-details" id="advancedDetails">
       <summary>Gelişmiş ayrıntılar ve manuel doğrulamalar</summary>
-    <section class="panel">
+    <section class="panel workspace-section workspace-advanced-core">
       <div class="panel-head">
         <div>
           <h2>Sevkiyat ve ürün</h2>
@@ -154,7 +161,7 @@
       </div>
     </section>
 
-    <section class="panel tariff-panel">
+    <section class="panel tariff-panel workspace-section workspace-customs">
       <div class="panel-head">
         <div>
           <h2>Gümrük ve tarife doğrulama</h2>
@@ -193,7 +200,7 @@
       </div>
     </section>
 
-    <section class="panel customs-valuation-panel">
+    <section class="panel customs-valuation-panel workspace-section workspace-customs">
       <div class="panel-head">
         <div>
           <h2>Gümrük kıymeti doğrulama</h2>
@@ -225,7 +232,7 @@
       <p id="customsValuationNote" class="section-help">Bu alan çalışma değeridir. Hangi kalemin eklenip indirileceği hedef ülke kurallarına göre doğrulanmalıdır.</p>
     </section>
 
-    <section class="panel trade-remedies-panel">
+    <section class="panel trade-remedies-panel workspace-section workspace-customs">
       <div class="panel-head">
         <div>
           <h2>Ticaret önlemleri / ek gümrük yükleri</h2>
@@ -279,7 +286,7 @@
       <p id="tradeRemedyNote" class="section-help">HS, menşe ve ithalat ülkesi değişirse mevcut remedy satırları yeniden doğrulanmalıdır.</p>
     </section>
 
-    <section class="panel tax-rule-panel">
+    <section class="panel tax-rule-panel workspace-section workspace-customs">
       <div class="panel-head">
         <div>
           <h2>İthalat vergileri</h2>
@@ -327,7 +334,7 @@
       <p id="taxRuleNote" class="section-help">İthalat ülkesi seçildiğinde vergi desteği kontrol edilir.</p>
     </section>
 
-    <section class="panel route-panel">
+    <section class="panel route-panel workspace-section workspace-logistics">
       <div class="panel-head">
         <div>
           <h2>Rota ve taşıma doğrulama</h2>
@@ -348,7 +355,7 @@
       </div>
     </section>
 
-    <section class="panel freight-benchmark-panel">
+    <section class="panel freight-benchmark-panel workspace-section workspace-logistics">
       <div class="panel-head">
         <div>
           <h2>Navlun benchmark</h2>
@@ -365,7 +372,7 @@
       <p id="freightBenchmarkNote" class="section-help">Önce rotayı hesaplayın veya aynı rota için forwarder teklifi kaydedin.</p>
     </section>
 
-    <section class="panel backhaul-panel">
+    <section class="panel backhaul-panel workspace-section workspace-logistics">
       <div class="panel-head">
         <div>
           <h2>Dönüş yükü / Backhaul</h2>
@@ -404,7 +411,7 @@
       <p id="backhaulNote" class="section-help">Önce navlun benchmark veya forwarder teklifinden bir çıkış navlun değeri oluşturun.</p>
     </section>
 
-    <section class="panel fx-panel">
+    <section class="panel fx-panel workspace-section workspace-calculator">
       <div class="panel-head">
         <h2>Güncel döviz kuru</h2>
         <button id="refreshFx">Kuru yenile</button>
@@ -488,7 +495,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel workspace-section workspace-logistics">
       <div class="panel-head">
         <div>
           <h2>Forwarder teklif havuzu</h2>
@@ -515,7 +522,7 @@
       <div id="quoteList" class="quote-list"></div>
     </section>
 
-    <section class="panel">
+    <section class="panel workspace-section workspace-customs workspace-logistics">
       <div class="panel-head">
         <div>
           <h2>Maliyet kalemleri</h2>
@@ -534,7 +541,7 @@
 
     <button id="calculate" class="primary">Toplam teslim maliyetini hesapla</button>
 
-    <section class="results" id="results" hidden>
+    <section class="results workspace-section workspace-calculator" id="results" hidden>
       <div class="metric strong"><span>Nihai birim maliyet</span><b id="unitFinal">—</b><small id="unitFinalLabel">USD / litre</small></div>
       <div class="metric"><span>Tedarikçi fiyat değeri</span><b id="goodsTotal">—</b><small>USD · seçilen Incoterm fiyat kapsamı</small></div>
       <div class="metric"><span>Ek landed-cost</span><b id="extraTotal">—</b><small>USD · tedarikçi fiyatına dahil olmayan maliyetler</small></div>
@@ -603,7 +610,7 @@
       <p class="print-disclaimer">Bu rapor hesaplama tarihinde mevcut olan veri, teklif ve kullanıcı girdilerine dayanır. Tahmini ve piyasa ortalaması niteliğindeki kalemler kesin teklif veya resmî tarife yerine geçmez.</p>
     </section>
 
-    <section class="panel history-panel">
+    <section class="panel history-panel workspace-section workspace-history">
       <div class="panel-head">
         <div>
           <h2>Geçmiş hesaplamalar</h2>
@@ -620,7 +627,7 @@
       </div>
     </section>
 
-    <section class="panel note">
+    <section class="panel note workspace-section workspace-calculator workspace-customs workspace-logistics">
       <h2>Veri politikası</h2>
       <p>Navlun konteyner/araç bazlı; gümrük ve vergi kalemleri HS Code, menşe, hedef ülke ve ilgili matrah üzerinden hesaplanır. Gerçek teklifler ve resmî veriler tahminlerin önüne geçer.</p>
     </section>
