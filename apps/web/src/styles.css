@@ -169,3 +169,26 @@ select option:disabled{
     width:100%;
   }
 }
+
+
+.trade-remedies-panel{
+  border-color:#3a3430;
+}
+.remedy-reference-field{
+  grid-column:span 2;
+}
+.cost-row.stale-remedy{
+  border-radius:12px;
+  outline:1px solid #7a4b32;
+  background:rgba(122,75,50,.10);
+}
+.cost-row.stale-remedy .label,
+.cost-row.stale-remedy .computed{
+  color:#e8b78e;
+}
+@media(max-width:800px){
+  .remedy-reference-field{grid-column:span 2}
+}
+@media(max-width:560px){
+  .remedy-reference-field{grid-column:auto}
+}
