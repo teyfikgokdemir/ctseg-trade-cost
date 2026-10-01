@@ -86,10 +86,11 @@ export function calculateLandedCost(input) {
     updatedAt: input.purchase.updatedAt ?? new Date().toISOString(), uncertaintyPct: input.purchase.uncertaintyPct ?? 0
   };
 
-  const rawCosts = [...(input.costs ?? []), ...(input.taxes ?? [])];
+  const rawCosts = [...(input.costs ?? [])];
+  const taxLines = [...(input.taxes ?? [])];
 
   const tariffDecision = input.tariff?.normalized?.appliedRateDecision;
-  const hasDutyLine = rawCosts.some(c => c.code === 'DUTY');
+  const hasDutyLine = rawCosts.some(c => c.code === 'DUTY') || taxLines.some(c => c.code === 'DUTY');
   if (!hasDutyLine && Number.isFinite(Number(tariffDecision?.rate))) {
     rawCosts.push({
       code: 'DUTY',
@@ -110,6 +111,8 @@ export function calculateLandedCost(input) {
       }
     });
   }
+
+  rawCosts.push(...taxLines);
 
   const resolved = new Map([[goodsCost.code, goodsCost]]);
   const costs = [goodsCost];
