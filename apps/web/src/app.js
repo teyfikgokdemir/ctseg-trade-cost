@@ -1453,6 +1453,26 @@ async function restoreCalculationSnapshot(item){
   if(Number.isFinite(Number(input.routeProfile?.heightCm))) document.querySelector('#heightCm').value=String(input.routeProfile.heightCm);
   if(Number.isFinite(Number(input.routeProfile?.commercialBufferPct))) document.querySelector('#commercialBuffer').value=String(input.routeProfile.commercialBufferPct);
 
+  if(input.backhaul){
+    const bh=input.backhaul;
+    const values={
+      backhaulEvidence:bh.evidence,
+      backhaulRevenue:bh.returnLoadRevenue,
+      backhaulExtraCost:bh.returnLoadExtraCost,
+      backhaulProbability:bh.probabilityPct,
+      backhaulEmptyKm:bh.emptyReturnKm,
+      backhaulDetourKm:bh.detourKm
+    };
+    for(const [id,value] of Object.entries(values)){
+      const el=document.querySelector('#'+id);
+      if(el && value!==undefined && value!==null) el.value=String(value);
+    }
+    currentBackhaulResult=null;
+    resetBackhaulDisplay(currentLanguage==='en'
+      ? 'Historical backhaul inputs restored. Recalculate before applying to a new calculation.'
+      : 'Geçmiş backhaul girdileri yüklendi. Yeni hesapta uygulamadan önce yeniden hesaplayın.');
+  }
+
   if(input.customsValuation){
     const cv=input.customsValuation;
     if(cv.status && [...document.querySelector('#customsValuationStatus').options].some(o=>o.value===cv.status)){
@@ -2081,6 +2101,22 @@ document.querySelector('#calculate').addEventListener('click',()=>{
       importCountryIso2:selectedCountryIso2('#importCountry'),
       incoterm:document.querySelector('#incoterm').value
     },
+    backhaul: currentBackhaulResult ? {
+      evidence:currentBackhaulResult.evidence,
+      outboundFreightCost:currentBackhaulResult.outboundFreightCost,
+      returnLoadRevenue:currentBackhaulResult.returnLoadRevenue,
+      returnLoadExtraCost:currentBackhaulResult.returnLoadExtraCost,
+      expectedRevenue:currentBackhaulResult.expectedRevenue,
+      expectedBenefit:currentBackhaulResult.expectedBenefit,
+      appliedBenefit:Number(findFreightRow()?.dataset.backhaulBenefit)||0,
+      effectiveOutboundCost:currentBackhaulResult.effectiveOutboundCost,
+      probabilityPct:currentBackhaulResult.probabilityPct,
+      emptyReturnKm:currentBackhaulResult.emptyReturnKm,
+      detourKm:currentBackhaulResult.detourKm,
+      confidence:currentBackhaulResult.confidence,
+      routeKey:currentBackhaulResult.routeKey,
+      applied:Boolean(findFreightRow()?.dataset.backhaulBenefit)
+    } : null,
     preferentialTariff:{
       eligibilityStatus:document.querySelector('#preferentialEligibility')?.value||'NOT_CONFIRMED',
       candidateRate:lastTariffData?.normalized?.preferentialCandidate?.rate??null,
