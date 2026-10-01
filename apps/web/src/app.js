@@ -159,6 +159,41 @@ const UI_MESSAGES={
   }
 };
 
+const CURRENCY_NAMES={
+  tr:{
+    USD:'ABD Doları',EUR:'Euro',TRY:'Türk Lirası',GBP:'İngiliz Sterlini',CHF:'İsviçre Frangı',
+    JPY:'Japon Yeni',CAD:'Kanada Doları',AUD:'Avustralya Doları',NZD:'Yeni Zelanda Doları',
+    SEK:'İsveç Kronu',NOK:'Norveç Kronu',DKK:'Danimarka Kronu',PLN:'Polonya Zlotisi',
+    CZK:'Çek Korunası',HUF:'Macar Forinti',RON:'Rumen Leyi',BGN:'Bulgar Levası',
+    CNY:'Çin Yuanı',HKD:'Hong Kong Doları',SGD:'Singapur Doları',KRW:'Güney Kore Wonu',
+    INR:'Hindistan Rupisi',IDR:'Endonezya Rupisi',MYR:'Malezya Ringgiti',THB:'Tayland Bahtı',
+    PHP:'Filipin Pesosu',MXN:'Meksika Pesosu',BRL:'Brezilya Reali',ZAR:'Güney Afrika Randı',
+    ILS:'İsrail Şekeli',ISK:'İzlanda Kronası'
+  },
+  en:{
+    USD:'US Dollar',EUR:'Euro',TRY:'Turkish Lira',GBP:'British Pound',CHF:'Swiss Franc',
+    JPY:'Japanese Yen',CAD:'Canadian Dollar',AUD:'Australian Dollar',NZD:'New Zealand Dollar',
+    SEK:'Swedish Krona',NOK:'Norwegian Krone',DKK:'Danish Krone',PLN:'Polish Zloty',
+    CZK:'Czech Koruna',HUF:'Hungarian Forint',RON:'Romanian Leu',BGN:'Bulgarian Lev',
+    CNY:'Chinese Yuan',HKD:'Hong Kong Dollar',SGD:'Singapore Dollar',KRW:'South Korean Won',
+    INR:'Indian Rupee',IDR:'Indonesian Rupiah',MYR:'Malaysian Ringgit',THB:'Thai Baht',
+    PHP:'Philippine Peso',MXN:'Mexican Peso',BRL:'Brazilian Real',ZAR:'South African Rand',
+    ILS:'Israeli Shekel',ISK:'Icelandic Krona'
+  }
+};
+
+function updateCurrencyLanguage(){
+  for(const id of ['fxBase','fxQuote']){
+    const select=document.querySelector('#'+id);
+    if(!select) continue;
+    for(const option of select.options){
+      const code=option.value;
+      const name=CURRENCY_NAMES[currentLanguage]?.[code];
+      if(name) option.textContent=`${code} — ${name}`;
+    }
+  }
+}
+
 const COST_LABEL_TRANSLATIONS={
   'Çıkış iç nakliye':'Origin inland haulage',
   'İhracat gümrüğü ve belgeler':'Export customs & documents',
@@ -233,6 +268,7 @@ function applyLanguage(lang){
   if(select) select.value=currentLanguage;
   translateStaticDocument();
   updateCostLanguage();
+  updateCurrencyLanguage();
   renderQuoteSummary();
   loadFx();
   const hs=document.querySelector('#hsCode')?.value.trim();
@@ -792,6 +828,7 @@ languageSelect.value=currentLanguage;
 languageSelect.addEventListener('change',()=>applyLanguage(languageSelect.value));
 translateStaticDocument();
 updateCostLanguage();
+updateCurrencyLanguage();
 
 document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
 ['originCountry','importCountry'].forEach(id=>document.querySelector('#'+id).addEventListener('change',loadTariff));
