@@ -86,18 +86,55 @@ export function calculateLandedCost(input) {
     updatedAt: input.purchase.updatedAt ?? new Date().toISOString(), uncertaintyPct: input.purchase.uncertaintyPct ?? 0
   };
 
-  const costs = [goodsCost, ...(input.costs ?? [])].map(c => {
-    let amount = c.amount;
-    if (c.calc === 'pct_goods') amount = goodsTotal * (c.rate / 100);
-    if (c.calc === 'pct_customs_base') {
-      const baseCodes = c.baseCodes ?? ['GOODS', 'FREIGHT_INTL', 'INSURANCE'];
-      const current = [goodsCost, ...(input.costs ?? [])];
-      const base = current.filter(x => baseCodes.includes(x.code)).reduce((sum, x) => sum + (x.amount ?? 0), 0);
-      amount = base * (c.rate / 100);
+  const rawCosts = [...(input.costs ?? [])];
+
+  const tariffDecision = input.tariff?.normalized?.appliedRateDecision;
+  const hasDutyLine = rawCosts.some(c => c.code === 'DUTY');
+  if (!hasDutyLine && Number.isFinite(Number(tariffDecision?.rate))) {
+    rawCosts.push({
+      code: 'DUTY',
+      label: 'Import duty',
+      calc: 'pct_customs_base',
+      rate: Number(tariffDecision.rate),
+      baseCodes: ['GOODS', 'FREIGHT_INTL', 'INSURANCE'],
+      sourceType: SourceType.OFFICIAL,
+      sourceName: input.tariff.sourceName ?? 'World Trade Organization',
+      sourceYear: input.tariff.normalized?.resolvedYear ?? null,
+      confidence: input.tariff.normalized?.confidence ?? null,
+      tariffBasis: tariffDecision.basis ?? 'MFN',
+      metadata: {
+        hsCode: input.tariff.classification?.hs ?? null,
+        reporter: input.tariff.route?.reporter ?? null,
+        partner: input.tariff.route?.partner ?? null,
+        preferentialCandidate: input.tariff.normalized?.preferentialCandidate ?? null
+      }
+    });
+  }
+
+  const resolved = new Map([[goodsCost.code, goodsCost]]);
+  const costs = [goodsCost];
+
+  for (const cost of rawCosts) {
+    let amount = cost.amount;
+
+    if (cost.calc === 'pct_goods') {
+      amount = goodsTotal * (cost.rate / 100);
     }
-    assertPositive(amount, c.code);
-    return { ...c, amount };
-  });
+
+    if (cost.calc === 'pct_customs_base') {
+      const baseCodes = cost.baseCodes ?? ['GOODS', 'FREIGHT_INTL', 'INSURANCE'];
+      const base = baseCodes.reduce((sum, code) => {
+        const item = resolved.get(code);
+        return sum + (item?.amount ?? 0);
+      }, 0);
+      amount = base * (cost.rate / 100);
+    }
+
+    assertPositive(amount, cost.code);
+    const resolvedCost = { ...cost, amount };
+    costs.push(resolvedCost);
+    resolved.set(resolvedCost.code, resolvedCost);
+  }
 
   const total = costs.reduce((s, c) => s + c.amount, 0);
   const low = costs.reduce((s, c) => s + costRange(c).low, 0);
