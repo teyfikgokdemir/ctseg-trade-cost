@@ -6,26 +6,61 @@ function normalizeRouteText(value) {
 }
 
 async function readHistoricalBenchmark(env, body) {
-  if (!env?.DB || !body?.workspaceId || !body?.origin || !body?.destination || !body?.equipment) return null;
+  if (!env?.DB || !body?.workspaceId || !body?.equipment) return null;
 
   const workspaceId = normalizeWorkspaceId(body.workspaceId);
-  const row = await env.DB.prepare(`
-    SELECT amount_per_unit, currency, confidence_pct, source_date, created_at, metadata_json
-    FROM freight_benchmarks
-    WHERE tenant_id = ?
-      AND lower(origin_city) = lower(?)
-      AND lower(destination_city) = lower(?)
-      AND equipment = ?
-      AND distance_km > 0
-      AND datetime(created_at) >= datetime('now', '-90 days')
-    ORDER BY datetime(created_at) DESC
-    LIMIT 1
-  `).bind(
-    workspaceId,
-    normalizeRouteText(body.origin),
-    normalizeRouteText(body.destination),
-    String(body.equipment).trim()
-  ).first();
+  const origin = normalizeRouteText(body.origin);
+  const destination = normalizeRouteText(body.destination);
+  const equipment = String(body.equipment).trim();
+  const transportMode = String(body.transportMode || "ROAD").trim();
+
+  let row = null;
+
+  if (origin && destination) {
+    row = await env.DB.prepare(`
+      SELECT amount_per_unit, currency, confidence_pct, source_date, created_at, metadata_json,
+             origin_city, destination_city, origin_country, destination_country, transport_mode
+      FROM freight_benchmarks
+      WHERE tenant_id = ?
+        AND lower(origin_city) = lower(?)
+        AND lower(destination_city) = lower(?)
+        AND equipment = ?
+        AND transport_mode = ?
+        AND distance_km > 0
+        AND datetime(created_at) >= datetime('now', '-90 days')
+      ORDER BY datetime(created_at) DESC
+      LIMIT 1
+    `).bind(
+      workspaceId,
+      origin,
+      destination,
+      equipment,
+      transportMode
+    ).first();
+  }
+
+  if (!row && body.originCountry && body.destinationCountry) {
+    row = await env.DB.prepare(`
+      SELECT amount_per_unit, currency, confidence_pct, source_date, created_at, metadata_json,
+             origin_city, destination_city, origin_country, destination_country, transport_mode
+      FROM freight_benchmarks
+      WHERE tenant_id = ?
+        AND origin_country = ?
+        AND destination_country = ?
+        AND equipment = ?
+        AND transport_mode = ?
+        AND distance_km > 0
+        AND datetime(created_at) >= datetime('now', '-90 days')
+      ORDER BY datetime(created_at) DESC
+      LIMIT 1
+    `).bind(
+      workspaceId,
+      String(body.originCountry),
+      String(body.destinationCountry),
+      equipment,
+      transportMode
+    ).first();
+  }
 
   if (!row || !Number.isFinite(Number(row.amount_per_unit))) return null;
 
@@ -33,9 +68,19 @@ async function readHistoricalBenchmark(env, body) {
     value: Number(row.amount_per_unit),
     date: row.source_date || row.created_at,
     sourceType: "ESTIMATE",
-    sourceName: "D1 historical freight benchmark",
+    sourceName: origin && destination
+      ? "D1 historical route benchmark"
+      : "D1 historical country-pair benchmark",
     currency: row.currency || body.currency || "USD",
-    confidencePct: Number(row.confidence_pct) || null
+    confidencePct: Number(row.confidence_pct) || null,
+    metadata: {
+      originCity: row.origin_city || null,
+      destinationCity: row.destination_city || null,
+      originCountry: row.origin_country || null,
+      destinationCountry: row.destination_country || null,
+      transportMode: row.transport_mode || transportMode,
+      fallbackScope: origin && destination ? "ROUTE" : "COUNTRY_PAIR"
+    }
   };
 }
 
