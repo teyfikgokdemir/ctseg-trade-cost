@@ -86,7 +86,7 @@ export function calculateLandedCost(input) {
     updatedAt: input.purchase.updatedAt ?? new Date().toISOString(), uncertaintyPct: input.purchase.uncertaintyPct ?? 0
   };
 
-  const rawCosts = [...(input.costs ?? [])];
+  const rawCosts = [...(input.costs ?? []), ...(input.taxes ?? [])];
 
   const tariffDecision = input.tariff?.normalized?.appliedRateDecision;
   const hasDutyLine = rawCosts.some(c => c.code === 'DUTY');
