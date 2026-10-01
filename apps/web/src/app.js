@@ -558,7 +558,13 @@ function customsValuationValues(){
 
 function invalidateCustomsValuation(){
   const status=document.querySelector('#customsValuationStatus');
-  if(status && status.value==='VERIFIED') status.value='WORKING';
+  if(status){
+    if(status.value==='VERIFIED') status.value='WORKING';
+    delete status.dataset.quickEstimate;
+    delete status.dataset.quickEstimateIncoterm;
+  }
+  const duty=findDutyRow();
+  if(duty) delete duty.dataset.customsBaseEstimated;
 }
 
 function updateCustomsValuation(){
@@ -875,6 +881,7 @@ let taxRuleRequestSeq=0;
 let lastTariffData=null;
 let lastTariffKey=null;
 let lastImportTaxLookup=null;
+let quickCalculationMode=false;
 
 async function loadCountries(){
   const originSelect=document.querySelector('#originCountry');
@@ -2106,7 +2113,9 @@ document.querySelector('#calculate').addEventListener('click',()=>{
   const costRows=[...document.querySelectorAll('.cost-row')];
   const dutyRow=findDutyRow();
   if(dutyRow && String(dutyRow.querySelector('.rate').value).trim()!==''){
-    if(customsValuation.status!=='VERIFIED'){
+    const quickEstimatedCustoms=quickCalculationMode
+      && document.querySelector('#customsValuationStatus')?.dataset.quickEstimate==='true';
+    if(customsValuation.status!=='VERIFIED' && !quickEstimatedCustoms){
       alert(currentLanguage==='en'
         ? 'Customs value is not verified. Verify the destination-country customs valuation treatment before calculating duty.'
         : 'Gümrük kıymeti doğrulanmadı. Gümrük vergisini hesaplamadan önce hedef ülkenin gümrük kıymeti uygulamasını doğrulayın.');
@@ -2464,6 +2473,7 @@ function syncQuickToEngine(){
   const origin=document.querySelector('#quickOriginCountry')?.value||'';
   const destination=document.querySelector('#quickImportCountry')?.value||'';
   const mode=document.querySelector('#quickTransportMode')?.value||'SEA';
+  const quickIncoterm=document.querySelector('#quickIncoterm')?.value||'EXW';
   const mt=quickQuantityToMt();
   const density=Number(document.querySelector('#quickDensity')?.value);
   const densityRequired=priceUnit==='USD_L'||document.querySelector('#quickQuantityUnit')?.value==='L';
@@ -2484,6 +2494,7 @@ function syncQuickToEngine(){
   document.querySelector('#exportCountry').value=origin;
   document.querySelector('#importCountry').value=destination;
   document.querySelector('#transportMode').value=mode;
+  document.querySelector('#incoterm').value=quickIncoterm;
   document.querySelector('#containerCount').value='1';
   document.querySelector('#payloadPerContainer').value=String(mt);
 
@@ -2576,6 +2587,72 @@ async function loadOfficialImportTax(){
   }
 }
 
+function costAmountByCode(code){
+  const row=[...document.querySelectorAll('.cost-row')].find(r=>r.dataset.code===code);
+  return row?calculateRow(row,{excludeCustoms:true}):0;
+}
+
+function buildQuickCustomsValuationEstimate(){
+  const term=document.querySelector('#incoterm')?.value||'EXW';
+  const status=document.querySelector('#customsValuationStatus');
+  const supported=['EXW','FCA','FAS','FOB','CPT','CFR','CIP','CIF'];
+
+  if(!supported.includes(term)){
+    if(status){
+      status.value='WORKING';
+      delete status.dataset.quickEstimate;
+    }
+    updateCustomsValuation();
+    return {
+      ok:false,
+      reason:'INCOTERM_REQUIRES_DETAILED_VALUATION'
+    };
+  }
+
+  const originInland=costAmountByCode('ORIGIN_INLAND');
+  const freight=costAmountByCode('FREIGHT_INTL');
+  const insurance=costAmountByCode('INSURANCE');
+
+  let freightAddition=0;
+  let insuranceAddition=0;
+  let originInlandAddition=0;
+
+  if(term==='EXW'){
+    originInlandAddition=originInland;
+    freightAddition=freight;
+    insuranceAddition=insurance;
+  }else if(['FCA','FAS','FOB'].includes(term)){
+    freightAddition=freight;
+    insuranceAddition=insurance;
+  }else if(['CPT','CFR'].includes(term)){
+    insuranceAddition=insurance;
+  }
+
+  document.querySelector('#cvFreight').value=String(Number((originInlandAddition+freightAddition).toFixed(2)));
+  document.querySelector('#cvInsurance').value=String(Number(insuranceAddition.toFixed(2)));
+  ['cvPacking','cvAssists','cvRoyalties','cvSellingCommission','cvOtherAddition','cvPostImportTransport','cvOtherDeduction']
+    .forEach(id=>{document.querySelector('#'+id).value='0';});
+
+  if(status){
+    status.value='WORKING';
+    status.dataset.quickEstimate='true';
+    status.dataset.quickEstimateIncoterm=term;
+  }
+  const v=updateCustomsValuation();
+  const duty=findDutyRow();
+  if(duty) duty.dataset.customsBaseEstimated='true';
+
+  return {
+    ok:true,
+    incoterm:term,
+    customsValue:v.value,
+    transactionValue:v.transactionValue,
+    originInlandAddition,
+    freightAddition,
+    insuranceAddition
+  };
+}
+
 function quickMissingData(){
   const missing=[];
   const hs=document.querySelector('#hsCode')?.value.trim();
@@ -2596,7 +2673,10 @@ function quickMissingData(){
   const freight=findFreightRow();
   if(!freight || freight.querySelector('.rate').value.trim()==='') missing.push(currentLanguage==='en'?'freight':'navlun');
 
-  if(document.querySelector('#customsValuationStatus')?.value!=='VERIFIED') missing.push(currentLanguage==='en'?'customs valuation':'gümrük kıymeti');
+  const cvStatus=document.querySelector('#customsValuationStatus');
+  if(cvStatus?.value!=='VERIFIED' && cvStatus?.dataset.quickEstimate!=='true'){
+    missing.push(currentLanguage==='en'?'customs valuation':'gümrük kıymeti');
+  }
   return [...new Set(missing)];
 }
 
@@ -2631,6 +2711,15 @@ async function runQuickCalculation(){
     applyFreightBenchmarkToCost(freightBenchmark);
   }
 
+  const customsEstimate=buildQuickCustomsValuationEstimate();
+  if(!customsEstimate.ok){
+    status.innerHTML=currentLanguage==='en'
+      ? 'This Incoterm requires detailed customs-valuation adjustments. <a href="?view=customs">Open Customs & Taxes</a>.'
+      : 'Bu Incoterm ayrıntılı gümrük kıymeti düzeltmesi gerektiriyor. <a href="?view=customs">Gümrük & Vergiler</a> detayını açın.';
+    status.className='quick-status warning';
+    return;
+  }
+
   const missing=quickMissingData();
   if(missing.length){
     status.innerHTML=(currentLanguage==='en'
@@ -2644,9 +2733,16 @@ async function runQuickCalculation(){
     return;
   }
 
-  status.textContent=currentLanguage==='en'?'All required cost data is ready. Calculating…':'Gerekli maliyet verileri hazır. Hesaplanıyor…';
+  status.textContent=currentLanguage==='en'
+    ? 'Required data is ready. Calculating with an Incoterm-based customs-value estimate…'
+    : 'Gerekli veriler hazır. Incoterm bazlı gümrük kıymeti tahminiyle hesaplanıyor…';
   status.className='quick-status verified';
-  document.querySelector('#calculate').click();
+  quickCalculationMode=true;
+  try{
+    document.querySelector('#calculate').click();
+  }finally{
+    quickCalculationMode=false;
+  }
 }
 
 async function searchHsCandidates(query){
