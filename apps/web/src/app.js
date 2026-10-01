@@ -232,6 +232,149 @@ document.querySelector('#calculate').addEventListener('click',()=>{
   document.querySelector('#results').hidden=false;
 });
 
+
+let hsSearchTimer=null;
+let hsSearchSeq=0;
+
+function setHsStatus(text,state=''){
+  const el=document.querySelector('#hsStatus');
+  el.textContent=text;
+  el.dataset.state=state;
+}
+
+function hideHsSuggestions(){
+  const box=document.querySelector('#hsSuggestions');
+  box.hidden=true;
+  box.replaceChildren();
+}
+
+function renderHsSuggestions(matches){
+  const box=document.querySelector('#hsSuggestions');
+  box.replaceChildren();
+
+  if(!matches.length){
+    const empty=document.createElement('div');
+    empty.className='hs-empty';
+    empty.textContent='Eşleşen HS6 adayı bulunamadı.';
+    box.appendChild(empty);
+    box.hidden=false;
+    return;
+  }
+
+  for(const match of matches){
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='hs-suggestion';
+    button.dataset.code=match.hsCode;
+
+    const top=document.createElement('span');
+    top.className='hs-suggestion-top';
+
+    const code=document.createElement('strong');
+    code.textContent=match.hsCode;
+
+    const badge=document.createElement('em');
+    badge.textContent=match.matchType==='CURATED_ALIAS'?'Ürün eşleşmesi':'HS 2022';
+
+    top.append(code,badge);
+
+    const desc=document.createElement('span');
+    desc.className='hs-suggestion-desc';
+    desc.textContent=match.aliasLabel
+      ? `${match.aliasLabel} — ${match.description}`
+      : match.description;
+
+    button.append(top,desc);
+    button.addEventListener('click',async()=>{
+      document.querySelector('#hsCode').value=match.hsCode;
+      hideHsSuggestions();
+      await validateHsCode(match.hsCode);
+    });
+
+    box.appendChild(button);
+  }
+
+  box.hidden=false;
+}
+
+async function searchHsCandidates(query){
+  const q=String(query||'').trim();
+  if(q.length<2){
+    hideHsSuggestions();
+    setHsStatus('HS 2022 global sınıflandırma');
+    return;
+  }
+
+  const seq=++hsSearchSeq;
+  setHsStatus('HS adayları aranıyor…','loading');
+
+  try{
+    const res=await fetch('/api/hs?q='+encodeURIComponent(q)+'&limit=8',{cache:'no-store'});
+    const data=await res.json();
+    if(seq!==hsSearchSeq) return;
+    if(!res.ok) throw new Error(data?.message||data?.error||'HS araması başarısız');
+
+    renderHsSuggestions(data.matches||[]);
+    setHsStatus(
+      data.matches?.length
+        ? `${data.matches.length} HS6 adayı · HS2022`
+        : 'HS6 adayı bulunamadı',
+      data.matches?.length?'candidate':'warning'
+    );
+  }catch(error){
+    if(seq!==hsSearchSeq) return;
+    hideHsSuggestions();
+    setHsStatus('HS verisi alınamadı · tekrar deneyin','error');
+  }
+}
+
+async function validateHsCode(code){
+  if(!/^\d{6}$/.test(code)){
+    setHsStatus('6 haneli HS kodu seçin veya ürün adıyla arayın','warning');
+    return null;
+  }
+
+  setHsStatus('HS kodu doğrulanıyor…','loading');
+  try{
+    const res=await fetch('/api/hs?code='+encodeURIComponent(code),{cache:'no-store'});
+    const data=await res.json();
+    if(!res.ok||!data.match) throw new Error();
+    setHsStatus(`${data.match.hsCode} doğrulandı · ${data.hsRevision||'HS2022'}`,'verified');
+    return data.match;
+  }catch{
+    setHsStatus('HS kodu doğrulanamadı','error');
+    return null;
+  }
+}
+
+const hsInput=document.querySelector('#hsCode');
+hsInput.addEventListener('input',()=>{
+  clearTimeout(hsSearchTimer);
+  const value=hsInput.value.trim();
+  hsSearchTimer=setTimeout(()=>searchHsCandidates(value),250);
+});
+hsInput.addEventListener('keydown',event=>{
+  if(event.key==='Escape') hideHsSuggestions();
+});
+hsInput.addEventListener('blur',()=>{
+  setTimeout(()=>{
+    if(/^\d{6}$/.test(hsInput.value.trim())) validateHsCode(hsInput.value.trim());
+  },150);
+});
+
+document.querySelector('#searchHsFromProduct').addEventListener('click',()=>{
+  const product=document.querySelector('#productName').value.trim();
+  if(product.length<2){
+    setHsStatus('Önce ürün adını yazın','warning');
+    return;
+  }
+  searchHsCandidates(product);
+});
+
+document.addEventListener('click',event=>{
+  if(!event.target.closest('.hs-field')) hideHsSuggestions();
+});
+
 async function loadFx(){
   const button=document.querySelector('#refreshFx');
   const rateEl=document.querySelector('#fxRate');
