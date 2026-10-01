@@ -65,9 +65,11 @@
         <label>Teslim noktası<input id="destination" placeholder="Şehir, liman, depo veya adres" /></label>
         <label>Incoterm
           <select id="incoterm">
-            <option>EXW</option><option>FCA</option><option>FOB</option>
-            <option>CFR</option><option>CIF</option><option>DAP</option><option>DDP</option>
+            <option>EXW</option><option>FCA</option><option>CPT</option><option>CIP</option>
+            <option>FAS</option><option>FOB</option><option>CFR</option><option>CIF</option>
+            <option>DAP</option><option>DPU</option><option>DDP</option>
           </select>
+          <small id="incotermStatus" class="field-status">Tedarikçi fiyatı seçilen Incoterm teslim noktasına göre yorumlanır.</small>
         </label>
 
         <label>Taşıma modu
