@@ -161,6 +161,53 @@
       <div class="breakdown" id="breakdownText"></div>
       <div class="range"><span>Beklenen maliyet aralığı</span><strong id="range">—</strong></div>
       <div class="route" id="routeText"></div>
+
+      <div class="report-actions">
+        <button id="printReport" type="button">PDF / Yazdır</button>
+      </div>
+    </section>
+
+    <section id="printReportSheet" class="print-report" aria-hidden="true">
+      <div class="print-head">
+        <div>
+          <div class="print-brand">ULUSLARARASI TİCARET MALİYET RAPORU</div>
+          <h1 id="printTitle">Toplam Teslim Maliyeti</h1>
+        </div>
+        <div class="print-date" id="printDate">—</div>
+      </div>
+
+      <div class="print-grid">
+        <div><span>Ürün</span><strong id="printProduct">—</strong></div>
+        <div><span>HS Code</span><strong id="printHs">—</strong></div>
+        <div><span>Menşe</span><strong id="printOriginCountry">—</strong></div>
+        <div><span>Incoterm</span><strong id="printIncoterm">—</strong></div>
+        <div><span>Çıkış</span><strong id="printOrigin">—</strong></div>
+        <div><span>Teslim</span><strong id="printDestination">—</strong></div>
+        <div><span>Konteyner</span><strong id="printContainer">—</strong></div>
+        <div><span>Toplam miktar</span><strong id="printQuantity">—</strong></div>
+      </div>
+
+      <div class="print-summary">
+        <div><span>Nihai birim maliyet</span><strong id="printUnitFinal">—</strong></div>
+        <div><span>Nihai toplam maliyet</span><strong id="printTotal">—</strong></div>
+        <div><span>Koruma paylı toplam</span><strong id="printSafeTotal">—</strong></div>
+        <div><span>Veri güveni</span><strong id="printConfidence">—</strong></div>
+      </div>
+
+      <h2>Maliyet dökümü</h2>
+      <table class="print-table">
+        <thead>
+          <tr><th>Kalem</th><th>Yöntem</th><th>Kaynak</th><th>Tutar</th></tr>
+        </thead>
+        <tbody id="printCostRows"></tbody>
+      </table>
+
+      <div class="print-footer">
+        <div><span>Beklenen maliyet aralığı</span><strong id="printRange">—</strong></div>
+        <div><span>Ticari durum</span><strong id="printCommercialStatus">—</strong></div>
+      </div>
+
+      <p class="print-disclaimer">Bu rapor hesaplama tarihinde mevcut olan veri, teklif ve kullanıcı girdilerine dayanır. Tahmini ve piyasa ortalaması niteliğindeki kalemler kesin teklif veya resmî tarife yerine geçmez.</p>
     </section>
 
     <section class="panel note">
