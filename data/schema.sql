@@ -45,7 +45,8 @@ CREATE TABLE tariff_records (
   effective_from TEXT,
   verified_at TEXT,
   retrieved_at TEXT,
-  metadata_json TEXT
+  metadata_json TEXT,
+  cache_key TEXT
 );
 
 CREATE TABLE calculations (
@@ -79,3 +80,12 @@ CREATE TABLE freight_benchmarks (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (tenant_id) REFERENCES tenants(id)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tariff_records_cache_key
+  ON tariff_records (cache_key);
+
+CREATE INDEX IF NOT EXISTS idx_tariff_records_retrieved
+  ON tariff_records (retrieved_at);
+
+CREATE INDEX IF NOT EXISTS idx_freight_benchmarks_recent
+  ON freight_benchmarks (tenant_id, origin_city, destination_city, equipment, created_at DESC);
