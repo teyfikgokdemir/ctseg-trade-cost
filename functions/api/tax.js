@@ -1,5 +1,5 @@
 import { TrVatMode, createTrVatLine } from "../../packages/rules/src/tr.js";
-import { getCountryRuleProfile, listConfiguredCountryRulePacks } from "../../packages/rules/src/registry.js";
+import { getCountryRuleProfile, listConfiguredCountryRulePacks, getGlobalTradeTaxCapabilities, CountryRulePackStatus } from "../../packages/rules/src/registry.js";
 
 function json(body, status = 200) {
   return Response.json(body, {
@@ -20,7 +20,8 @@ export async function onRequestGet({ request }) {
     return json({
       provider: "country-tax-rules",
       sourceType: "RULE_REGISTRY",
-      configuredCountries: listConfiguredCountryRulePacks()
+      configuredCountries: listConfiguredCountryRulePacks(),
+      globalCapabilities: getGlobalTradeTaxCapabilities()
     });
   }
 
@@ -55,14 +56,14 @@ export async function onRequestGet({ request }) {
     });
   }
 
-  if (profile.status !== "CONFIGURED") {
+  if (profile.status === CountryRulePackStatus.GLOBAL_GENERIC) {
     return json({
-      error: "Country rule pack is not configured yet",
+      error: "Country-specific tax handler is not configured; use verified generic tax inputs",
       country,
       status: profile.status,
       profile,
       availableCountries: listConfiguredCountryRulePacks().map(x => x.country)
-    }, 404);
+    }, 422);
   }
 
   if (country !== "TR") {
