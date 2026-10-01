@@ -131,6 +131,7 @@ const STATIC_TRANSLATIONS={
   'Beklenen dönüş geliri':'Expected return revenue',
   'Net ekonomik fayda':'Net economic benefit',
   'Efektif navlun / ekipman':'Effective freight / equipment',
+  'Yük borsası bağlantılarını kontrol et':'Check freight-exchange connections',
   'Backhaul etkisini hesapla':'Calculate backhaul effect',
   'Doğrulanmış faydayı uygula':'Apply verified benefit',
   'Önce navlun benchmark veya forwarder teklifinden bir çıkış navlun değeri oluşturun.':'First establish an outbound freight value from a benchmark or forwarder quote.',
@@ -1757,6 +1758,55 @@ function outboundFreightPerUnit(){
   return Number.isFinite(original)&&original>0?original:null;
 }
 
+async function checkBackhaulProviders(){
+  const list=document.querySelector('#backhaulProviderList');
+  const mode=document.querySelector('#transportMode')?.value||'';
+  if(!list) return;
+
+  list.innerHTML=currentLanguage==='en'
+    ? '<div class="remedy-source-card">Checking freight-exchange adapters…</div>'
+    : '<div class="remedy-source-card">Yük borsası adapter’ları kontrol ediliyor…</div>';
+
+  try{
+    const params=new URLSearchParams({action:'plan',mode});
+    const res=await fetch('/api/backhaul-providers?'+params.toString(),{cache:'no-store'});
+    const data=await res.json();
+    if(!res.ok) throw new Error(data?.message||data?.error||'Backhaul provider lookup failed');
+
+    const providers=Array.isArray(data.providers)?data.providers:[];
+    if(!providers.length){
+      list.innerHTML='<div class="remedy-source-card muted">'+(currentLanguage==='en'
+        ? 'No connected marketplace adapter for this transport mode. Manual backhaul inputs remain available.'
+        : 'Bu taşıma modu için bağlı yük borsası adapter’ı yok. Manuel backhaul girdileri kullanılabilir.')+'</div>';
+      return;
+    }
+
+    list.innerHTML=providers.map(provider=>{
+      const status=provider.status==='CONNECTED'
+        ? (currentLanguage==='en'?'Connected':'Bağlı')
+        : provider.status==='AUTH_REQUIRED'
+          ? (currentLanguage==='en'?'Authorization required':'Yetkilendirme gerekli')
+          : (currentLanguage==='en'?'Manual only':'Manuel');
+      const caps=(provider.capabilities||[]).join(', ');
+      const notes=(provider.notes||[]).map(n=>'<li>'+n+'</li>').join('');
+      return `<div class="remedy-source-card">
+        <div class="remedy-source-top">
+          <strong>${provider.name}</strong>
+          <span>${status}</span>
+        </div>
+        <small>${provider.authority||''}</small>
+        <p>${currentLanguage==='en'?'Capabilities':'Yetenekler'}: ${caps||'—'}</p>
+        ${notes?'<ul>'+notes+'</ul>':''}
+        <a href="${provider.sourceUrl}" target="_blank" rel="noopener noreferrer">${currentLanguage==='en'?'Open integration documentation':'Entegrasyon dokümantasyonunu aç'}</a>
+      </div>`;
+    }).join('');
+  }catch{
+    list.innerHTML='<div class="remedy-source-card warning">'+(currentLanguage==='en'
+      ? 'Freight-exchange adapter lookup failed. Manual backhaul calculation remains available.'
+      : 'Yük borsası adapter kontrolü başarısız. Manuel backhaul hesabı kullanılabilir.')+'</div>';
+  }
+}
+
 function calculateBackhaulUi(){
   const outbound=outboundFreightPerUnit();
   if(!outbound){
@@ -1930,6 +1980,7 @@ document.querySelector('#saveQuote').addEventListener('click',()=>{
     if(saved){saveQuotes(quotes);renderQuoteSummary()}
   });
 });
+document.querySelector('#checkBackhaulProviders')?.addEventListener('click',checkBackhaulProviders);
 document.querySelector('#calculateBackhaul')?.addEventListener('click',calculateBackhaulUi);
 document.querySelector('#applyBackhaul')?.addEventListener('click',applyBackhaulBenefit);
 ['backhaulEvidence','backhaulRevenue','backhaulExtraCost','backhaulProbability','backhaulEmptyKm','backhaulDetourKm']
