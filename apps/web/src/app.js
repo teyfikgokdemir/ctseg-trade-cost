@@ -868,6 +868,8 @@ async function loadCountries(){
   const exportSelect=document.querySelector('#exportCountry');
   const importSelect=document.querySelector('#importCountry');
   const taxRuleSelect=document.querySelector('#taxRuleCountrySelect');
+  const quickOriginSelect=document.querySelector('#quickOriginCountry');
+  const quickImportSelect=document.querySelector('#quickImportCountry');
 
   try{
     const res=await fetch('/api/countries',{cache:'no-store'});
@@ -901,11 +903,15 @@ async function loadCountries(){
     fill(exportSelect);
     fill(importSelect);
     fill(taxRuleSelect);
+    if(quickOriginSelect) fill(quickOriginSelect);
+    if(quickImportSelect) fill(quickImportSelect);
   }catch{
     originSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
     exportSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
     importSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
     if(taxRuleSelect) taxRuleSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
+    if(quickOriginSelect) quickOriginSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
+    if(quickImportSelect) quickImportSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
   }
 }
 
@@ -2345,6 +2351,158 @@ function renderHsSuggestions(matches){
   box.hidden=false;
 }
 
+function applyWorkspaceView(){
+  const view=new URLSearchParams(location.search).get('view')||'calculator';
+  const valid=['calculator','logistics','customs','history'];
+  const active=valid.includes(view)?view:'calculator';
+
+  document.querySelectorAll('[data-workspace-link]').forEach(link=>{
+    link.classList.toggle('active',link.dataset.workspaceLink===active);
+  });
+
+  document.querySelectorAll('.workspace-section').forEach(section=>{
+    const show=
+      section.classList.contains('workspace-'+active) ||
+      (active!=='calculator' && section.classList.contains('workspace-advanced-core'));
+    section.hidden=!show;
+  });
+
+  const advanced=document.querySelector('#advancedDetails');
+  if(advanced){
+    advanced.open=active!=='calculator';
+    advanced.hidden=active==='calculator';
+  }
+
+  const calculate=document.querySelector('#calculate');
+  if(calculate) calculate.hidden=active!=='calculator';
+}
+
+function quickQuantityToMt(){
+  const qty=Math.max(0,Number(document.querySelector('#quickQuantity')?.value)||0);
+  const unit=document.querySelector('#quickQuantityUnit')?.value||'MT';
+  if(unit==='MT') return qty;
+  if(unit==='KG') return qty/1000;
+  const density=Number(document.querySelector('#quickDensity')?.value);
+  if(!Number.isFinite(density)||density<=0) return null;
+  return qty*density/1000;
+}
+
+function updateQuickDensityVisibility(){
+  const unit=document.querySelector('#quickQuantityUnit')?.value;
+  const wrap=document.querySelector('#quickDensityWrap');
+  if(wrap) wrap.hidden=unit!=='L';
+}
+
+async function resolveQuickHs(product){
+  const q=String(product||'').trim();
+  if(q.length<2) return {ok:false,reason:'PRODUCT'};
+  try{
+    const res=await fetch('/api/hs?q='+encodeURIComponent(q)+'&limit=8',{cache:'no-store'});
+    const data=await res.json();
+    const matches=Array.isArray(data.matches)?data.matches:[];
+    if(!res.ok||!matches.length) return {ok:false,reason:'HS'};
+    const best=matches[0];
+    document.querySelector('#hsCode').value=best.hsCode;
+    await validateHsCode(best.hsCode);
+    return {ok:true,match:best,ambiguous:matches.length>1};
+  }catch{
+    return {ok:false,reason:'HS'};
+  }
+}
+
+function syncQuickToEngine(){
+  const product=document.querySelector('#quickProduct')?.value.trim()||'';
+  const price=Math.max(0,Number(document.querySelector('#quickPrice')?.value)||0);
+  const priceUnit=document.querySelector('#quickPriceUnit')?.value||'USD_MT';
+  const origin=document.querySelector('#quickOriginCountry')?.value||'';
+  const destination=document.querySelector('#quickImportCountry')?.value||'';
+  const mode=document.querySelector('#quickTransportMode')?.value||'SEA';
+  const mt=quickQuantityToMt();
+
+  if(!product||!price||!origin||!destination||!mt){
+    return {ok:false,reason:mt===null?'DENSITY':'FIELDS'};
+  }
+
+  document.querySelector('#productName').value=product;
+  document.querySelector('#price').value=String(price);
+  document.querySelector('#priceUnit').value=priceUnit;
+  document.querySelector('#originCountry').value=origin;
+  document.querySelector('#exportCountry').value=origin;
+  document.querySelector('#importCountry').value=destination;
+  document.querySelector('#transportMode').value=mode;
+  document.querySelector('#containerCount').value='1';
+  document.querySelector('#payloadPerContainer').value=String(mt);
+
+  const taxSelect=document.querySelector('#taxRuleCountrySelect');
+  if(taxSelect) taxSelect.value=destination;
+
+  syncShipment();
+  return {ok:true,mt,origin,destination,mode,product};
+}
+
+function quickMissingData(){
+  const missing=[];
+  const hs=document.querySelector('#hsCode')?.value.trim();
+  if(!/^\d{6}$/.test(hs)) missing.push(currentLanguage==='en'?'HS classification':'HS sınıflandırması');
+
+  const duty=findDutyRow();
+  if(!duty || duty.querySelector('.rate').value.trim()==='') missing.push(currentLanguage==='en'?'customs duty':'gümrük vergisi');
+
+  const importTax=findImportTaxRow();
+  if(!importTax || importTax.querySelector('.rate').value.trim()==='') missing.push(currentLanguage==='en'?'import VAT/GST':'ithalat KDV/GST');
+
+  const freight=findFreightRow();
+  if(!freight || freight.querySelector('.rate').value.trim()==='') missing.push(currentLanguage==='en'?'freight':'navlun');
+
+  if(document.querySelector('#customsValuationStatus')?.value!=='VERIFIED') missing.push(currentLanguage==='en'?'customs valuation':'gümrük kıymeti');
+  return [...new Set(missing)];
+}
+
+async function runQuickCalculation(){
+  const status=document.querySelector('#quickCalcStatus');
+  const synced=syncQuickToEngine();
+  if(!synced.ok){
+    status.textContent=synced.reason==='DENSITY'
+      ? (currentLanguage==='en'?'Density is required for litre quantities.':'Litre bazlı miktarda yoğunluk gerekli.')
+      : (currentLanguage==='en'?'Fill product, price, quantity and both countries.':'Ürün, fiyat, miktar ve iki ülkeyi doldurun.');
+    status.className='quick-status error';
+    return;
+  }
+
+  status.textContent=currentLanguage==='en'?'Checking HS, tariff, tax and freight data…':'HS, tarife, vergi ve navlun verileri kontrol ediliyor…';
+  status.className='quick-status loading';
+
+  const hs=await resolveQuickHs(synced.product);
+  if(!hs.ok){
+    status.textContent=currentLanguage==='en'
+      ? 'HS code could not be resolved automatically. Open Customs & Taxes for classification.'
+      : 'HS kodu otomatik belirlenemedi. Sınıflandırma için Gümrük & Vergiler detayını açın.';
+    status.className='quick-status warning';
+    return;
+  }
+
+  await loadTariff();
+  await loadCountryTaxProfile();
+  await loadFreightBenchmark();
+
+  const missing=quickMissingData();
+  if(missing.length){
+    status.innerHTML=(currentLanguage==='en'
+      ? 'Calculation is not complete yet. Missing verified data: '
+      : 'Hesap henüz tamamlanmadı. Doğrulanması gereken veriler: ')
+      +'<strong>'+missing.join(', ')+'</strong>. '
+      +(currentLanguage==='en'
+        ? '<a href="?view=customs">Open customs/tax details</a> or <a href="?view=logistics">logistics details</a>.'
+        : '<a href="?view=customs">Gümrük/vergi detayını</a> veya <a href="?view=logistics">lojistik detayını</a> açın.');
+    status.className='quick-status warning';
+    return;
+  }
+
+  status.textContent=currentLanguage==='en'?'All required cost data is ready. Calculating…':'Gerekli maliyet verileri hazır. Hesaplanıyor…';
+  status.className='quick-status verified';
+  document.querySelector('#calculate').click();
+}
+
 async function searchHsCandidates(query){
   const q=String(query||'').trim();
   if(q.length<2){
@@ -2618,3 +2776,9 @@ refreshTradeRemedyValidity();
 ['origin','destination','exportCountry','importCountry','containerType'].forEach(id=>{
   document.querySelector('#'+id)?.addEventListener('change',()=>invalidateBackhaul('route-context'));
 });
+
+
+applyWorkspaceView();
+document.querySelector('#quickQuantityUnit')?.addEventListener('change',updateQuickDensityVisibility);
+updateQuickDensityVisibility();
+document.querySelector('#quickCalculate')?.addEventListener('click',runQuickCalculation);
