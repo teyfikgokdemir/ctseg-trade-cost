@@ -95,3 +95,13 @@ No placeholder value may be surfaced as LIVE or OFFICIAL.
 - If a verified rate is not supplied, the Türkiye adapter uses the general 20% VAT rate only as a marked fallback: `GENERAL_RATE_FALLBACK`, `requiresRateVerification=true`.
 - Export-registered VAT is calculated for invoice/audit visibility but excluded from cash landed cost when the statutory conditions are met.
 - Import VAT base includes customs value and resolved import taxes/charges represented by the configured base codes.
+
+
+## Interface localization and multilingual HS search
+- UI languages: Turkish (`tr`) and English (`en`), persisted locally per browser.
+- HS codes remain canonical/global; interface language never changes the HS identifier.
+- HS search accepts English catalog terms plus curated multilingual aliases.
+- Turkish normalization handles `ç, ğ, ı, ö, ş, ü` before search.
+- Initial Turkish aliases include L-threonine/treonin, sunflower oil/ayçiçek yağı, and almonds/badem.
+- Ambiguous product aliases may deliberately return multiple HS6 candidates; the user must select the appropriate product presentation before tariff calculation.
+- Official UN HS2022 descriptions remain available in English; localized labels are presentation/search aids only.

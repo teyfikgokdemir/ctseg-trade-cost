@@ -1,7 +1,288 @@
+const languageStoreKey='ctseg_trade_cost_language_v1';
+let currentLanguage=localStorage.getItem(languageStoreKey)==='en'?'en':'tr';
+
+const STATIC_TRANSLATIONS={
+  'ULUSLARARASI TİCARET MALİYET ZEKÂSI':'INTERNATIONAL TRADE COST INTELLIGENCE',
+  'Toplam Teslim Maliyeti':'Total Landed Cost',
+  'Konteyner, ürün, rota ve ülke bazında ithalat / ihracat maliyet motoru.':'Import / export cost engine by container, product, route and country.',
+  'Dil':'Language',
+  'Sevkiyat ve ürün':'Shipment and product',
+  'Nakliye konteyner bazlı; ürün ve vergi hesapları kendi gerçek matrahına göre çalışır.':'Freight is container-based; product and tax calculations use their actual tax bases.',
+  'Ürün':'Product',
+  'HS Code':'HS Code',
+  'Üründen ara':'Search by product',
+  'HS 2022 global sınıflandırma':'HS 2022 global classification',
+  'Menşe ülke':'Country of origin',
+  'Çıkış noktası':'Origin point',
+  'Teslim noktası':'Delivery point',
+  'İthalat ülkesi':'Import country',
+  'Konteyner tipi':'Container type',
+  'Konteyner sayısı':'Container count',
+  'Net yük / konteyner (MT)':'Net payload / container (MT)',
+  'Toplam net miktar (MT)':'Total net quantity (MT)',
+  'Alış fiyatı':'Purchase price',
+  'Fiyat birimi':'Price unit',
+  'Gümrük ve tarife doğrulama':'Customs and tariff verification',
+  'HS6, menşe ve ithalat ülkesine göre WTO resmi tarife verisi otomatik sorgulanır.':'Official WTO tariff data is queried automatically by HS6, origin and import country.',
+  'Tarifeyi yenile':'Refresh tariff',
+  'MFN oranı':'MFN rate',
+  'Kaynak yılı':'Source year',
+  'Durum':'Status',
+  'Bekliyor':'Waiting',
+  'HS kodu ve ülkeler seçildiğinde otomatik sorgulanır.':'Queried automatically when the HS code and countries are selected.',
+  'Rota ve taşıma doğrulama':'Route and transport verification',
+  'Gerçek rota sağlayıcısı bağlandığında mesafe, sürüş süresi ve mevcut yol ücretleri burada doğrulanır.':'Distance, driving time and available tolls are verified here when a live route provider is connected.',
+  'Rotayı hesapla':'Calculate route',
+  'Araç brüt ağırlığı (kg)':'Vehicle gross weight (kg)',
+  'Araç yüksekliği (cm)':'Vehicle height (cm)',
+  'Ticari koruma payı (%)':'Commercial safety buffer (%)',
+  'Mesafe':'Distance',
+  'Sürüş süresi':'Driving time',
+  'Yol ücretleri':'Tolls',
+  'Rota verisi':'Route data',
+  'Güncel döviz kuru':'Current exchange rate',
+  'Kuru yenile':'Refresh rate',
+  'Kaynak para birimi':'Base currency',
+  'Hedef para birimi':'Quote currency',
+  'Referans kur':'Reference rate',
+  'Henüz yüklenmedi':'Not loaded yet',
+  'Forwarder teklif havuzu':'Forwarder quote pool',
+  'Gerçek teklifleri kaydet. Sistem aynı rota ve konteyner tipindeki geçerli tekliflerden güncel değer üretir.':'Save real quotes. The system derives a current value from valid quotes for the same route and container type.',
+  'Uygun navlunu uygula':'Apply matching freight',
+  'Firma / forwarder':'Company / forwarder',
+  'USD / konteyner':'USD / container',
+  'Teklif tarihi':'Quote date',
+  'Geçerlilik sonu':'Valid until',
+  'Teklifi kaydet':'Save quote',
+  'Eşleşen teklif':'Matching quotes',
+  'Güncel ortalama':'Current average',
+  'Son teklif':'Latest quote',
+  'Veri durumu':'Data status',
+  'Veri yok':'No data',
+  'Maliyet kalemleri':'Cost items',
+  'Tüm sonuçlar USD olarak normalize edilir. Hesaplama yöntemi her kaleme ayrı uygulanır.':'All results are normalized to USD. Each cost item uses its own calculation method.',
+  '+ Maliyet ekle':'+ Add cost',
+  'Açıklama':'Description',
+  'Yöntem':'Method',
+  'Birim değer':'Unit value',
+  'Kaynak':'Source',
+  'Hesaplanan':'Calculated',
+  'Toplam teslim maliyetini hesapla':'Calculate total landed cost',
+  'Nihai birim maliyet':'Final unit cost',
+  'Ürün EXW maliyeti':'Product EXW cost',
+  'USD · ürün bedeli':'USD · product value',
+  'EXW sonrası ek maliyet':'Post-EXW additional cost',
+  'USD · lojistik, gümrük, vergi vb.':'USD · logistics, customs, taxes, etc.',
+  'Nihai toplam maliyet':'Final total cost',
+  'USD · ürün + tüm ek maliyetler':'USD · product + all additional costs',
+  'Ürün birim fiyatı':'Product unit price',
+  'Ek maliyet / birim':'Additional cost / unit',
+  'Toplam sevkiyat':'Total shipment',
+  'Veri güveni':'Data confidence',
+  'hesap güven seviyesi':'calculation confidence level',
+  'Koruma paylı toplam maliyet':'Buffered total cost',
+  'Belirsizlik + ticari koruma payı':'Uncertainty + commercial safety buffer',
+  'Koruma paylı birim maliyet':'Buffered unit cost',
+  'Tahmini gider oranı':'Estimated-cost share',
+  'Toplam ek maliyet içindeki tahmini veri':'Estimated data within additional costs',
+  'Ticari durum':'Commercial status',
+  'Beklenen maliyet aralığı':'Expected cost range',
+  'PDF / Yazdır':'PDF / Print',
+  'ULUSLARARASI TİCARET MALİYET RAPORU':'INTERNATIONAL TRADE COST REPORT',
+  'Menşe':'Origin',
+  'Çıkış':'Origin point',
+  'Teslim':'Delivery',
+  'Konteyner':'Container',
+  'Toplam miktar':'Total quantity',
+  'Koruma paylı toplam':'Buffered total',
+  'Maliyet dökümü':'Cost breakdown',
+  'Kalem':'Item',
+  'Tutar':'Amount',
+  'Bu rapor hesaplama tarihinde mevcut olan veri, teklif ve kullanıcı girdilerine dayanır. Tahmini ve piyasa ortalaması niteliğindeki kalemler kesin teklif veya resmî tarife yerine geçmez.':'This report is based on data, quotes and user inputs available on the calculation date. Estimated and market-average items do not replace binding quotes or official tariff determinations.',
+  'Veri politikası':'Data policy',
+  'Navlun konteyner/araç bazlı; gümrük ve vergi kalemleri HS Code, menşe, hedef ülke ve ilgili matrah üzerinden hesaplanır. Gerçek teklifler ve resmî veriler tahminlerin önüne geçer.':'Freight is container/vehicle based; customs and tax items are calculated from HS Code, origin, destination country and the relevant tax base. Real quotes and official data take precedence over estimates.',
+  'Ülke seçin':'Select country',
+  'Ülkeler yükleniyor…':'Loading countries…',
+  'Ülke listesi alınamadı':'Country list unavailable',
+  '20 ft':'20 ft',
+  '40 ft':'40 ft'
+};
+
+const STATIC_REVERSE_EN=new Map(Object.entries(STATIC_TRANSLATIONS).map(([tr,en])=>[en,tr]));
+
+const UI_MESSAGES={
+  tr:{
+    hsGlobal:'HS 2022 global sınıflandırma',
+    hsSearching:'HS adayları aranıyor…',
+    hsNoMatch:'HS6 adayı bulunamadı',
+    hsNoMatchLong:'Eşleşen HS6 adayı bulunamadı.',
+    hsDataError:'HS verisi alınamadı · tekrar deneyin',
+    hsSixDigits:'6 haneli HS kodu seçin veya ürün adıyla arayın',
+    hsValidating:'HS kodu doğrulanıyor…',
+    hsInvalid:'HS kodu doğrulanamadı',
+    productFirst:'Önce ürün adını yazın',
+    productMatch:'Ürün eşleşmesi',
+    tariffMissing:'Eksik seçim',
+    tariffMissingNote:'6 haneli HS kodu, menşe ve ithalat ülkesi gerekli.',
+    tariffLoading:'Sorgulanıyor…',
+    tariffNoData:'Veri alınamadı',
+    tariffNoDataNote:'WTO tarife verisi alınamadı; manuel doğrulama gerekli.',
+    highConfidence:'Yüksek güven',
+    mediumConfidence:'Orta güven',
+    verifyRequired:'Doğrulama gerekli',
+    tariffMfn:'WTO MFN oranı otomatik uygulandı. Nihai beyan öncesi ulusal tarife satırı doğrulanmalıdır.',
+    countriesLoading:'Ülkeler yükleniyor…',
+    countrySelect:'Ülke seçin'
+  },
+  en:{
+    hsGlobal:'HS 2022 global classification',
+    hsSearching:'Searching HS candidates…',
+    hsNoMatch:'No HS6 candidate found',
+    hsNoMatchLong:'No matching HS6 candidate found.',
+    hsDataError:'HS data unavailable · try again',
+    hsSixDigits:'Select a 6-digit HS code or search by product name',
+    hsValidating:'Validating HS code…',
+    hsInvalid:'HS code could not be validated',
+    productFirst:'Enter a product name first',
+    productMatch:'Product match',
+    tariffMissing:'Incomplete selection',
+    tariffMissingNote:'A 6-digit HS code, origin and import country are required.',
+    tariffLoading:'Querying…',
+    tariffNoData:'Data unavailable',
+    tariffNoDataNote:'WTO tariff data could not be retrieved; manual verification is required.',
+    highConfidence:'High confidence',
+    mediumConfidence:'Medium confidence',
+    verifyRequired:'Verification required',
+    tariffMfn:'The WTO MFN rate was applied automatically. Verify the national tariff line before the final declaration.',
+    countriesLoading:'Loading countries…',
+    countrySelect:'Select country'
+  }
+};
+
+const CURRENCY_NAMES={
+  tr:{
+    USD:'ABD Doları',EUR:'Euro',TRY:'Türk Lirası',GBP:'İngiliz Sterlini',CHF:'İsviçre Frangı',
+    JPY:'Japon Yeni',CAD:'Kanada Doları',AUD:'Avustralya Doları',NZD:'Yeni Zelanda Doları',
+    SEK:'İsveç Kronu',NOK:'Norveç Kronu',DKK:'Danimarka Kronu',PLN:'Polonya Zlotisi',
+    CZK:'Çek Korunası',HUF:'Macar Forinti',RON:'Rumen Leyi',BGN:'Bulgar Levası',
+    CNY:'Çin Yuanı',HKD:'Hong Kong Doları',SGD:'Singapur Doları',KRW:'Güney Kore Wonu',
+    INR:'Hindistan Rupisi',IDR:'Endonezya Rupisi',MYR:'Malezya Ringgiti',THB:'Tayland Bahtı',
+    PHP:'Filipin Pesosu',MXN:'Meksika Pesosu',BRL:'Brezilya Reali',ZAR:'Güney Afrika Randı',
+    ILS:'İsrail Şekeli',ISK:'İzlanda Kronası'
+  },
+  en:{
+    USD:'US Dollar',EUR:'Euro',TRY:'Turkish Lira',GBP:'British Pound',CHF:'Swiss Franc',
+    JPY:'Japanese Yen',CAD:'Canadian Dollar',AUD:'Australian Dollar',NZD:'New Zealand Dollar',
+    SEK:'Swedish Krona',NOK:'Norwegian Krone',DKK:'Danish Krone',PLN:'Polish Zloty',
+    CZK:'Czech Koruna',HUF:'Hungarian Forint',RON:'Romanian Leu',BGN:'Bulgarian Lev',
+    CNY:'Chinese Yuan',HKD:'Hong Kong Dollar',SGD:'Singapore Dollar',KRW:'South Korean Won',
+    INR:'Indian Rupee',IDR:'Indonesian Rupiah',MYR:'Malaysian Ringgit',THB:'Thai Baht',
+    PHP:'Philippine Peso',MXN:'Mexican Peso',BRL:'Brazilian Real',ZAR:'South African Rand',
+    ILS:'Israeli Shekel',ISK:'Icelandic Krona'
+  }
+};
+
+function updateCurrencyLanguage(){
+  for(const id of ['fxBase','fxQuote']){
+    const select=document.querySelector('#'+id);
+    if(!select) continue;
+    for(const option of select.options){
+      const code=option.value;
+      const name=CURRENCY_NAMES[currentLanguage]?.[code];
+      if(name) option.textContent=`${code} — ${name}`;
+    }
+  }
+}
+
+const COST_LABEL_TRANSLATIONS={
+  'Çıkış iç nakliye':'Origin inland haulage',
+  'İhracat gümrüğü ve belgeler':'Export customs & documents',
+  'Uluslararası navlun':'International freight',
+  'Yük sigortası':'Cargo insurance',
+  'Varış / sınır masrafları':'Destination / border charges',
+  'İthalat gümrük vergisi (doğrulanacak)':'Import duty (to be verified)',
+  'İthalat gümrük vergisi':'Import duty',
+  'Gümrük müşavirliği':'Customs brokerage',
+  'Varış iç nakliye':'Destination inland haulage'
+};
+const COST_LABEL_REVERSE=new Map(Object.entries(COST_LABEL_TRANSLATIONS).map(([tr,en])=>[en,tr]));
+
+function msg(key){return UI_MESSAGES[currentLanguage]?.[key]||UI_MESSAGES.tr[key]||key}
+
+function translateStaticDocument(){
+  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+  const nodes=[];
+  while(walker.nextNode()) nodes.push(walker.currentNode);
+  for(const node of nodes){
+    const raw=node.nodeValue;
+    const text=raw.trim();
+    if(!text) continue;
+    const key=STATIC_TRANSLATIONS[text]?text:STATIC_REVERSE_EN.get(text);
+    if(!key) continue;
+    const translated=currentLanguage==='en'?STATIC_TRANSLATIONS[key]:key;
+    node.nodeValue=raw.replace(text,translated);
+  }
+
+  const placeholders={
+    productName:{tr:'Ayçiçek yağı',en:'Sunflower oil'},
+    hsCode:{tr:'Kod veya ürün adı yazın…',en:'Type HS code or product name…'},
+    quoteProvider:{tr:'Örn. ABC Lojistik',en:'e.g. ABC Logistics'}
+  };
+  for(const [id,values] of Object.entries(placeholders)){
+    const el=document.querySelector('#'+id);
+    if(!el) continue;
+    if(id==='productName'){
+      const known=['Ayçiçek yağı','Sunflower oil'];
+      if(known.includes(el.value)) el.value=values[currentLanguage];
+    }else{
+      el.placeholder=values[currentLanguage];
+    }
+  }
+
+  document.documentElement.lang=currentLanguage;
+  document.title=currentLanguage==='en'?'International Trade Cost Calculator':'Uluslararası Ticaret Maliyet Hesaplama';
+}
+
+function updateCostLanguage(){
+  document.querySelectorAll('.cost-row').forEach(row=>{
+    const input=row.querySelector('.label');
+    const value=input.value;
+    const tr=COST_LABEL_TRANSLATIONS[value]?value:COST_LABEL_REVERSE.get(value);
+    if(tr) input.value=currentLanguage==='en'?COST_LABEL_TRANSLATIONS[tr]:tr;
+
+    const method=row.querySelector('.method');
+    [...method.options].forEach(option=>{
+      option.textContent=(currentLanguage==='en'?methodLabelsEn:methodLabelsTr)[option.value]||option.value;
+    });
+    const source=row.querySelector('.source');
+    [...source.options].forEach(option=>{
+      option.textContent=(currentLanguage==='en'?sourceLabelsEn:sourceLabelsTr)[option.value]||option.value;
+    });
+  });
+}
+
+function applyLanguage(lang){
+  currentLanguage=lang==='en'?'en':'tr';
+  localStorage.setItem(languageStoreKey,currentLanguage);
+  const select=document.querySelector('#languageSelect');
+  if(select) select.value=currentLanguage;
+  translateStaticDocument();
+  updateCostLanguage();
+  updateCurrencyLanguage();
+  renderQuoteSummary();
+  loadFx();
+  const hs=document.querySelector('#hsCode')?.value.trim();
+  if(!hs) setHsStatus(msg('hsGlobal'));
+}
+
 const weights={LIVE:1,OFFICIAL:.98,QUOTE:.92,MARKET_AVG:.82,MANUAL:.75,ESTIMATE:.60};
 const spreads={LIVE:.02,OFFICIAL:.005,QUOTE:.04,MARKET_AVG:.10,MANUAL:.08,ESTIMATE:.18};
-const sourceLabels={LIVE:'Canlı veri',OFFICIAL:'Resmî kaynak',QUOTE:'Güncel teklif',MARKET_AVG:'Piyasa ortalaması',MANUAL:'Manuel veri',ESTIMATE:'Tahmin'};
-const methodLabels={FIXED:'Sevkiyat başına',PER_CONTAINER:'Konteyner başına',PER_MT:'MT başına',PCT_GOODS:'Ürün bedelinin %',PCT_CUSTOMS:'Gümrük kıymetinin %'};
+const sourceLabelsTr={LIVE:'Canlı veri',OFFICIAL:'Resmî kaynak',QUOTE:'Güncel teklif',MARKET_AVG:'Piyasa ortalaması',MANUAL:'Manuel veri',ESTIMATE:'Tahmin'};
+const sourceLabelsEn={LIVE:'Live data',OFFICIAL:'Official source',QUOTE:'Current quote',MARKET_AVG:'Market average',MANUAL:'Manual data',ESTIMATE:'Estimate'};
+const methodLabelsTr={FIXED:'Sevkiyat başına',PER_CONTAINER:'Konteyner başına',PER_MT:'MT başına',PCT_GOODS:'Ürün bedelinin %',PCT_CUSTOMS:'Gümrük kıymetinin %'};
+const methodLabelsEn={FIXED:'Per shipment',PER_CONTAINER:'Per container',PER_MT:'Per MT',PCT_GOODS:'% of goods value',PCT_CUSTOMS:'% of customs value'};
+const sourceLabels=currentLanguage==='en'?sourceLabelsEn:sourceLabelsTr;
+const methodLabels=currentLanguage==='en'?methodLabelsEn:methodLabelsTr;
 const defaults=[
   ['Çıkış iç nakliye','PER_CONTAINER',1800,'MARKET_AVG'],
   ['İhracat gümrüğü ve belgeler','FIXED',950,'MARKET_AVG'],
@@ -15,7 +296,7 @@ const defaults=[
 const rows=document.querySelector('#costRows');
 const quoteStoreKey='ctseg_trade_cost_quotes_v1';
 
-function money(n,d=2){return new Intl.NumberFormat('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(Number(n)||0)}
+function money(n,d=2){return new Intl.NumberFormat(currentLanguage==='en'?'en-US':'tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(Number(n)||0)}
 function positive(selector){const v=Number(document.querySelector(selector).value);return Number.isFinite(v)&&v>0?v:null}
 function todayISO(){return new Date().toISOString().slice(0,10)}
 function normalizeText(v){return (v||'').trim().toLowerCase().replace(/\s+/g,' ')}
@@ -64,9 +345,9 @@ function addRow([label='',method='FIXED',rate=0,source='ESTIMATE']={}){
   div.className='cost-row';
   div.innerHTML=`
     <input class="label" value="${label}">
-    <select class="method">${Object.keys(methodLabels).map(k=>`<option value="${k}" ${k===method?'selected':''}>${methodLabels[k]}</option>`).join('')}</select>
+    <select class="method">${Object.keys(methodLabelsTr).map(k=>`<option value="${k}" ${k===method?'selected':''}>${(currentLanguage==='en'?methodLabelsEn:methodLabelsTr)[k]}</option>`).join('')}</select>
     <input class="rate" type="number" min="0" step="0.01" value="${rate}">
-    <select class="source">${Object.keys(sourceLabels).map(k=>`<option value="${k}" ${k===source?'selected':''}>${sourceLabels[k]}</option>`).join('')}</select>
+    <select class="source">${Object.keys(sourceLabelsTr).map(k=>`<option value="${k}" ${k===source?'selected':''}>${(currentLanguage==='en'?sourceLabelsEn:sourceLabelsTr)[k]}</option>`).join('')}</select>
     <output class="computed">$0</output>
     <button type="button" title="Sil">×</button>`;
   div.querySelector('button').addEventListener('click',()=>{div.remove();refreshCalculatedAmounts()});
@@ -109,7 +390,7 @@ async function loadCountries(){
       select.replaceChildren();
       const placeholder=document.createElement('option');
       placeholder.value='';
-      placeholder.textContent='Ülke seçin';
+      placeholder.textContent=msg('countrySelect');
       select.appendChild(placeholder);
 
       for(const country of countryReference){
@@ -129,8 +410,8 @@ async function loadCountries(){
     fill(originSelect,'792');
     fill(importSelect,'004');
   }catch{
-    originSelect.innerHTML='<option value="">Ülke listesi alınamadı</option>';
-    importSelect.innerHTML='<option value="">Ülke listesi alınamadı</option>';
+    originSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
+    importSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
   }
 }
 
@@ -152,11 +433,11 @@ function applyTariffToUi(normalized){
   if(Number.isFinite(rate)){
     duty.querySelector('.rate').value=String(rate);
     duty.querySelector('.source').value='OFFICIAL';
-    duty.querySelector('.label').value='İthalat gümrük vergisi';
+    duty.querySelector('.label').value=currentLanguage==='en'?'Import duty':'İthalat gümrük vergisi';
   }else{
     duty.querySelector('.rate').value='0';
     duty.querySelector('.source').value='ESTIMATE';
-    duty.querySelector('.label').value='İthalat gümrük vergisi (doğrulanacak)';
+    duty.querySelector('.label').value=currentLanguage==='en'?'Import duty (to be verified)':'İthalat gümrük vergisi (doğrulanacak)';
   }
   refreshCalculatedAmounts();
 }
@@ -175,14 +456,14 @@ async function loadTariff(){
     hsEl.textContent=hs||'—';
     rateEl.textContent='—';
     yearEl.textContent='—';
-    statusEl.textContent='Eksik seçim';
-    noteEl.textContent='6 haneli HS kodu, menşe ve ithalat ülkesi gerekli.';
+    statusEl.textContent=msg('tariffMissing');
+    noteEl.textContent=msg('tariffMissingNote');
     return null;
   }
 
   const seq=++tariffRequestSeq;
   hsEl.textContent=hs;
-  statusEl.textContent='Sorgulanıyor…';
+  statusEl.textContent=msg('tariffLoading');
   rateEl.textContent='—';
   yearEl.textContent='—';
 
@@ -204,15 +485,17 @@ async function loadTariff(){
     rateEl.textContent=Number.isFinite(rate)?'%'+money(rate,2):'Veri yok';
     yearEl.textContent=normalized.resolvedYear||'—';
     statusEl.textContent=normalized.confidence==='HIGH'
-      ?'Yüksek güven'
+      ?msg('highConfidence')
       :normalized.confidence==='MEDIUM'
-        ?'Orta güven'
-        :'Doğrulama gerekli';
+        ?msg('mediumConfidence')
+        :msg('verifyRequired');
 
     const pref=normalized.preferentialCandidate;
     noteEl.textContent=pref
-      ? `MFN güvenli varsayılan olarak uygulandı. %${money(pref.rate,2)} preferential aday var ancak uygunluk doğrulanmadı.`
-      : 'WTO MFN oranı otomatik uygulandı. Nihai beyan öncesi ulusal tarife satırı doğrulanmalıdır.';
+      ? (currentLanguage==='en'
+        ? `MFN was applied as the safe default. A ${money(pref.rate,2)}% preferential candidate exists, but eligibility is not confirmed.`
+        : `MFN güvenli varsayılan olarak uygulandı. %${money(pref.rate,2)} preferential aday var ancak uygunluk doğrulanmadı.`)
+      : msg('tariffMfn');
 
     applyTariffToUi(normalized);
     return data;
@@ -220,8 +503,8 @@ async function loadTariff(){
     if(seq!==tariffRequestSeq) return null;
     rateEl.textContent='—';
     yearEl.textContent='—';
-    statusEl.textContent='Veri alınamadı';
-    noteEl.textContent='WTO tarife verisi alınamadı; manuel doğrulama gerekli.';
+    statusEl.textContent=msg('tariffNoData');
+    noteEl.textContent=msg('tariffNoDataNote');
     applyTariffToUi(null);
     return null;
   }
@@ -266,7 +549,7 @@ function renderQuoteSummary(){
   document.querySelector('#matchedQuoteCount').textContent=String(matches.length);
   document.querySelector('#matchedQuoteAverage').textContent=avg?'$'+money(avg,0)+' / konteyner':'—';
   document.querySelector('#latestQuoteValue').textContent=latest?'$'+money(latest.rate,0)+' / konteyner':'—';
-  document.querySelector('#quoteDataStatus').textContent=matches.length>=3?'Güçlü veri':matches.length===2?'Orta veri':matches.length===1?'Tek teklif':'Veri yok';
+  document.querySelector('#quoteDataStatus').textContent=currentLanguage==='en'?(matches.length>=3?'Strong data':matches.length===2?'Moderate data':matches.length===1?'Single quote':'No data'):(matches.length>=3?'Güçlü veri':matches.length===2?'Orta veri':matches.length===1?'Tek teklif':'Veri yok');
 
   const list=document.querySelector('#quoteList');
   list.innerHTML=matches.slice(0,6).map(q=>`
@@ -274,7 +557,7 @@ function renderQuoteSummary(){
       <div><strong>${q.provider||'Forwarder'}</strong><span>${q.date} · ${q.containerType}</span></div>
       <b>$${money(q.rate,0)}</b>
       <button data-id="${q.id}" type="button">Sil</button>
-    </div>`).join('') || '<p class="empty">Bu rota ve konteyner tipi için kayıtlı geçerli teklif yok.</p>';
+    </div>`).join('') || (currentLanguage==='en'?'<p class="empty">No valid saved quote exists for this route and container type.</p>':'<p class="empty">Bu rota ve konteyner tipi için kayıtlı geçerli teklif yok.</p>');
   list.querySelectorAll('button[data-id]').forEach(btn=>btn.addEventListener('click',()=>{
     saveQuotes(loadQuotes().filter(q=>q.id!==btn.dataset.id));
     renderQuoteSummary();
@@ -286,7 +569,7 @@ document.querySelector('#saveQuote').addEventListener('click',()=>{
   const rate=positive('#quoteRate');
   const date=document.querySelector('#quoteDate').value||todayISO();
   const validUntil=document.querySelector('#quoteValidUntil').value||null;
-  if(!rate){alert('Teklif tutarını girin.');return}
+  if(!rate){alert(currentLanguage==='en'?'Enter the quote amount.':'Teklif tutarını girin.');return}
   const quotes=loadQuotes();
   quotes.push({
     id:String(Date.now()),
@@ -305,9 +588,9 @@ document.querySelector('#saveQuote').addEventListener('click',()=>{
 document.querySelector('#applyQuoteAverage').addEventListener('click',()=>{
   const matches=matchingQuotes();
   const avg=weightedQuoteAverage(matches);
-  if(!avg){alert('Bu rota için geçerli teklif bulunamadı.');return}
+  if(!avg){alert(currentLanguage==='en'?'No valid quote was found for this route.':'Bu rota için geçerli teklif bulunamadı.');return}
   const freight=[...document.querySelectorAll('.cost-row')].find(r=>/uluslararası navlun|international freight|freight/i.test(r.querySelector('.label').value));
-  if(!freight){alert('Uluslararası navlun satırı bulunamadı.');return}
+  if(!freight){alert(currentLanguage==='en'?'International freight row was not found.':'Uluslararası navlun satırı bulunamadı.');return}
   freight.querySelector('.rate').value=Math.round(avg);
   freight.querySelector('.source').value=matches.length===1?'QUOTE':'MARKET_AVG';
   refreshCalculatedAmounts();
@@ -317,7 +600,7 @@ renderQuoteSummary();
 document.querySelector('#calculate').addEventListener('click',()=>{
   const s=shipment();
   const price=positive('#price');
-  if(!s.count||!s.payload||!price){alert('Konteyner sayısı, net yük ve alış fiyatını kontrol edin.');return}
+  if(!s.count||!s.payload||!price){alert(currentLanguage==='en'?'Check container count, net payload and purchase price.':'Konteyner sayısı, net yük ve alış fiyatını kontrol edin.');return}
   const goods=goodsTotal();
   const costRows=[...document.querySelectorAll('.cost-row')];
   const costs=costRows.map(row=>({amount:calculateRow(row),source:row.querySelector('.source').value}));
@@ -353,13 +636,17 @@ document.querySelector('#calculate').addEventListener('click',()=>{
   document.querySelector('#estimateShare').textContent=money(estimateShare,1)+'%';
   const matches=matchingQuotes();
   const risky=estimateShare>20||matches.length===0;
-  document.querySelector('#commercialStatus').textContent=risky?'Doğrulama gerekli':'Daha güvenli';
-  document.querySelector('#commercialStatusMeta').textContent=risky?'Teklif vermeden önce kritik kalemleri doğrula':'Gerçek teklif/veri kapsamı daha iyi';
+  document.querySelector('#commercialStatus').textContent=currentLanguage==='en'?(risky?'Verification required':'Safer'):(risky?'Doğrulama gerekli':'Daha güvenli');
+  document.querySelector('#commercialStatusMeta').textContent=currentLanguage==='en'?(risky?'Verify critical items before quoting':'Better coverage of real quotes/data'):(risky?'Teklif vermeden önce kritik kalemleri doğrula':'Gerçek teklif/veri kapsamı daha iyi');
   const riskMessage=document.querySelector('#riskMessage');
   riskMessage.className='risk-message '+(risky?'warning':'ok');
   riskMessage.textContent=risky
-    ? 'Bu hesapta tahmini veri oranı veya doğrulanmış navlun verisi yetersiz. Ticari fiyat vermeden önce navlun ve kritik gümrük kalemlerini doğrulayın.'
-    : 'Bu senaryoda doğrulanmış veri kapsamı daha güçlü. Yine de teklif geçerlilik tarihlerini kontrol edin.';
+    ? (currentLanguage==='en'
+      ? 'Estimated-data share or verified freight coverage is insufficient. Verify freight and critical customs items before issuing a commercial quote.'
+      : 'Bu hesapta tahmini veri oranı veya doğrulanmış navlun verisi yetersiz. Ticari fiyat vermeden önce navlun ve kritik gümrük kalemlerini doğrulayın.')
+    : (currentLanguage==='en'
+      ? 'Verified data coverage is stronger in this scenario. Still check quote validity dates.'
+      : 'Bu senaryoda doğrulanmış veri kapsamı daha güçlü. Yine de teklif geçerlilik tarihlerini kontrol edin.');
 
   document.querySelector('#breakdownText').innerHTML=`
     <span>Ürün</span><strong>$${money(goods,0)}</strong>
@@ -394,7 +681,7 @@ function renderHsSuggestions(matches){
   if(!matches.length){
     const empty=document.createElement('div');
     empty.className='hs-empty';
-    empty.textContent='Eşleşen HS6 adayı bulunamadı.';
+    empty.textContent=msg('hsNoMatchLong');
     box.appendChild(empty);
     box.hidden=false;
     return;
@@ -413,14 +700,15 @@ function renderHsSuggestions(matches){
     code.textContent=match.hsCode;
 
     const badge=document.createElement('em');
-    badge.textContent=match.matchType==='CURATED_ALIAS'?'Ürün eşleşmesi':'HS 2022';
+    badge.textContent=match.matchType==='CURATED_ALIAS'?msg('productMatch'):'HS 2022';
 
     top.append(code,badge);
 
     const desc=document.createElement('span');
     desc.className='hs-suggestion-desc';
-    desc.textContent=match.aliasLabel
-      ? `${match.aliasLabel} — ${match.description}`
+    const localizedAlias=match.localizedLabels?.[currentLanguage]||match.aliasLabel;
+    desc.textContent=localizedAlias
+      ? `${localizedAlias} — ${match.description}`
       : match.description;
 
     button.append(top,desc);
@@ -440,12 +728,12 @@ async function searchHsCandidates(query){
   const q=String(query||'').trim();
   if(q.length<2){
     hideHsSuggestions();
-    setHsStatus('HS 2022 global sınıflandırma');
+    setHsStatus(msg('hsGlobal'));
     return;
   }
 
   const seq=++hsSearchSeq;
-  setHsStatus('HS adayları aranıyor…','loading');
+  setHsStatus(msg('hsSearching'),'loading');
 
   try{
     const res=await fetch('/api/hs?q='+encodeURIComponent(q)+'&limit=8',{cache:'no-store'});
@@ -457,32 +745,32 @@ async function searchHsCandidates(query){
     setHsStatus(
       data.matches?.length
         ? `${data.matches.length} HS6 adayı · HS2022`
-        : 'HS6 adayı bulunamadı',
+        : msg('hsNoMatch'),
       data.matches?.length?'candidate':'warning'
     );
   }catch(error){
     if(seq!==hsSearchSeq) return;
     hideHsSuggestions();
-    setHsStatus('HS verisi alınamadı · tekrar deneyin','error');
+    setHsStatus(msg('hsDataError'),'error');
   }
 }
 
 async function validateHsCode(code){
   if(!/^\d{6}$/.test(code)){
-    setHsStatus('6 haneli HS kodu seçin veya ürün adıyla arayın','warning');
+    setHsStatus(msg('hsSixDigits'),'warning');
     return null;
   }
 
-  setHsStatus('HS kodu doğrulanıyor…','loading');
+  setHsStatus(msg('hsValidating'),'loading');
   try{
     const res=await fetch('/api/hs?code='+encodeURIComponent(code),{cache:'no-store'});
     const data=await res.json();
     if(!res.ok||!data.match) throw new Error();
-    setHsStatus(`${data.match.hsCode} doğrulandı · ${data.hsRevision||'HS2022'}`,'verified');
+    setHsStatus(currentLanguage==='en'?`${data.match.hsCode} validated · ${data.hsRevision||'HS2022'}`:`${data.match.hsCode} doğrulandı · ${data.hsRevision||'HS2022'}`,'verified');
     loadTariff();
     return data.match;
   }catch{
-    setHsStatus('HS kodu doğrulanamadı','error');
+    setHsStatus(msg('hsInvalid'),'error');
     return null;
   }
 }
@@ -505,7 +793,7 @@ hsInput.addEventListener('blur',()=>{
 document.querySelector('#searchHsFromProduct').addEventListener('click',()=>{
   const product=document.querySelector('#productName').value.trim();
   if(product.length<2){
-    setHsStatus('Önce ürün adını yazın','warning');
+    setHsStatus(msg('productFirst'),'warning');
     return;
   }
   searchHsCandidates(product);
@@ -522,19 +810,26 @@ async function loadFx(){
   const base=document.querySelector('#fxBase').value.trim().toUpperCase();
   const quote=document.querySelector('#fxQuote').value.trim().toUpperCase();
   if(!/^[A-Z]{3}$/.test(base)||!/^[A-Z]{3}$/.test(quote)){
-    rateEl.textContent='Geçersiz para birimi';metaEl.textContent='Örnek: USD, EUR, TRY';return;
+    rateEl.textContent=currentLanguage==='en'?'Invalid currency':'Geçersiz para birimi';metaEl.textContent=currentLanguage==='en'?'Example: USD, EUR, TRY':'Örnek: USD, EUR, TRY';return;
   }
-  button.disabled=true;button.textContent='Yükleniyor…';
+  button.disabled=true;button.textContent=currentLanguage==='en'?'Loading…':'Yükleniyor…';
   try{
     const response=await fetch(`/api/fx?base=${encodeURIComponent(base)}&quote=${encodeURIComponent(quote)}`,{cache:'no-store'});
     if(!response.ok) throw new Error();
     const data=await response.json();
     rateEl.textContent=`1 ${base} = ${money(Number(data.rate),4)} ${quote}`;
-    const dateText=data.date?new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')):'Güncel';
+    const dateText=data.date?new Intl.DateTimeFormat(currentLanguage==='en'?'en-US':'tr-TR',{dateStyle:'medium'}).format(new Date(data.date+'T12:00:00Z')):(currentLanguage==='en'?'Current':'Güncel');
     metaEl.textContent=`${dateText} · ${data.sourceName||'Referans kur'}`;
-  }catch{rateEl.textContent='Kur verisi alınamadı';metaEl.textContent='API bağlantısı henüz aktif değil veya deploy tamamlanmadı.'}
-  finally{button.disabled=false;button.textContent='Kuru yenile'}
+  }catch{rateEl.textContent=currentLanguage==='en'?'Exchange-rate data unavailable':'Kur verisi alınamadı';metaEl.textContent=currentLanguage==='en'?'The API connection is not active yet or deployment is incomplete.':'API bağlantısı henüz aktif değil veya deploy tamamlanmadı.'}
+  finally{button.disabled=false;button.textContent=currentLanguage==='en'?'Refresh rate':'Kuru yenile'}
 }
+const languageSelect=document.querySelector('#languageSelect');
+languageSelect.value=currentLanguage;
+languageSelect.addEventListener('change',()=>applyLanguage(languageSelect.value));
+translateStaticDocument();
+updateCostLanguage();
+updateCurrencyLanguage();
+
 document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
 ['originCountry','importCountry'].forEach(id=>document.querySelector('#'+id).addEventListener('change',loadTariff));
 
@@ -544,7 +839,7 @@ loadFx();
 
 async function calculateRoute(){
   const btn=document.querySelector('#calculateRoute');
-  btn.disabled=true;btn.textContent='Hesaplanıyor…';document.querySelector('#routeStatus').textContent='Yükleniyor';
+  btn.disabled=true;btn.textContent=currentLanguage==='en'?'Calculating…':'Hesaplanıyor…';document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Loading':'Yükleniyor';
   try{
     const params=new URLSearchParams({
       origin:document.querySelector('#origin').value.trim(),
@@ -556,7 +851,7 @@ async function calculateRoute(){
     const data=await res.json();
     if(!res.ok){
       if(data.status==='NOT_CONFIGURED'){
-        document.querySelector('#routeStatus').textContent='API anahtarı gerekli';
+        document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'API key required':'API anahtarı gerekli';
         document.querySelector('#routeDistance').textContent='—';
         document.querySelector('#routeDuration').textContent='—';
         document.querySelector('#routeTolls').textContent='—';
@@ -569,10 +864,10 @@ async function calculateRoute(){
     const tollEntries=Object.entries(data.tollTotals||{});
     document.querySelector('#routeTolls').textContent=tollEntries.length
       ? tollEntries.map(([c,v])=>money(v,2)+' '+c).join(' + ')
-      : (data.tollDataAvailable ? 'Yol ücreti yok / veri yok' : 'Ücretsiz kaynakta yok');
-    document.querySelector('#routeStatus').textContent=data.truckProfileApplied?'Doğrulanmış kamyon rotası':'Ücretsiz rota tahmini';
-  }catch{document.querySelector('#routeStatus').textContent='Rota alınamadı'}
-  finally{btn.disabled=false;btn.textContent='Rotayı hesapla'}
+      : (data.tollDataAvailable ? (currentLanguage==='en'?'No toll / no data':'Yol ücreti yok / veri yok') : (currentLanguage==='en'?'Unavailable from free source':'Ücretsiz kaynakta yok'));
+    document.querySelector('#routeStatus').textContent=currentLanguage==='en'?(data.truckProfileApplied?'Verified truck route':'Free route estimate'):(data.truckProfileApplied?'Doğrulanmış kamyon rotası':'Ücretsiz rota tahmini');
+  }catch{document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Route unavailable':'Rota alınamadı'}
+  finally{btn.disabled=false;btn.textContent=currentLanguage==='en'?'Calculate route':'Rotayı hesapla'}
 }
 document.querySelector('#calculateRoute').addEventListener('click',calculateRoute);
 
@@ -580,7 +875,7 @@ document.querySelector('#calculateRoute').addEventListener('click',calculateRout
 function buildPrintReport(){
   const s=shipment();
   const get=id=>document.querySelector(id)?.textContent?.trim()||'—';
-  document.querySelector('#printDate').textContent=new Intl.DateTimeFormat('tr-TR',{dateStyle:'long',timeStyle:'short'}).format(new Date());
+  document.querySelector('#printDate').textContent=new Intl.DateTimeFormat(currentLanguage==='en'?'en-US':'tr-TR',{dateStyle:'long',timeStyle:'short'}).format(new Date());
   document.querySelector('#printProduct').textContent=document.querySelector('#productName').value||'—';
   document.querySelector('#printHs').textContent=document.querySelector('#hsCode').value||'—';
   document.querySelector('#printOriginCountry').textContent=selectedCountryName('#originCountry');
@@ -607,7 +902,7 @@ function buildPrintReport(){
 
 document.querySelector('#printReport').addEventListener('click',()=>{
   if(document.querySelector('#results').hidden){
-    alert('Önce maliyeti hesaplayın.');
+    alert(currentLanguage==='en'?'Calculate the cost first.':'Önce maliyeti hesaplayın.');
     return;
   }
   buildPrintReport();
