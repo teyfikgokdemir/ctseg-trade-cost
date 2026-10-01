@@ -925,6 +925,7 @@ async function loadCountries(){
     fill(taxRuleSelect);
     if(quickOriginSelect) fill(quickOriginSelect);
     if(quickImportSelect) fill(quickImportSelect);
+    restoreWorkspaceDraft();
   }catch{
     originSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
     exportSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
@@ -2416,6 +2417,117 @@ function renderHsSuggestions(matches){
   box.hidden=false;
 }
 
+const WORKSPACE_DRAFT_KEY='ctseg-trade-cost-workspace-draft-v1';
+const WORKSPACE_DRAFT_FIELDS=[
+  'quickProduct','quickPrice','quickPriceUnit','quickQuantity','quickQuantityUnit','quickDensity',
+  'quickOriginCountry','quickImportCountry','quickTransportMode','quickIncoterm',
+  'productName','hsCode','originCountry','exportCountry','importCountry','transportMode','incoterm',
+  'price','priceUnit','containerCount','payloadPerContainer','densityKgPerL',
+  'origin','destination','transitCountries','containerType'
+];
+
+function workspaceFieldSnapshot(){
+  const values={};
+  for(const id of WORKSPACE_DRAFT_FIELDS){
+    const el=document.querySelector('#'+id);
+    if(el) values[id]=el.value;
+  }
+  return {
+    savedAt:new Date().toISOString(),
+    values
+  };
+}
+
+function persistWorkspaceDraft(){
+  try{
+    sessionStorage.setItem(WORKSPACE_DRAFT_KEY,JSON.stringify(workspaceFieldSnapshot()));
+  }catch{}
+}
+
+function restoreWorkspaceDraft(){
+  let draft=null;
+  try{
+    draft=JSON.parse(sessionStorage.getItem(WORKSPACE_DRAFT_KEY)||'null');
+  }catch{}
+  if(!draft?.values) return false;
+
+  for(const [id,value] of Object.entries(draft.values)){
+    const el=document.querySelector('#'+id);
+    if(!el || value===undefined || value===null) continue;
+    if(el.tagName==='SELECT' && ![...el.options].some(o=>o.value===String(value))) continue;
+    el.value=String(value);
+  }
+
+  const taxSelect=document.querySelector('#taxRuleCountrySelect');
+  if(taxSelect && document.querySelector('#importCountry')?.value){
+    taxSelect.value=document.querySelector('#importCountry').value;
+  }
+
+  updateQuickDensityVisibility();
+  syncShipment();
+  updateIncotermStatus();
+  renderQuoteSummary();
+  return true;
+}
+
+function syncQuickDraftToEngine(){
+  const map=[
+    ['quickProduct','productName'],
+    ['quickPrice','price'],
+    ['quickPriceUnit','priceUnit'],
+    ['quickOriginCountry','originCountry'],
+    ['quickOriginCountry','exportCountry'],
+    ['quickImportCountry','importCountry'],
+    ['quickTransportMode','transportMode'],
+    ['quickIncoterm','incoterm']
+  ];
+
+  for(const [fromId,toId] of map){
+    const from=document.querySelector('#'+fromId);
+    const to=document.querySelector('#'+toId);
+    if(!from||!to||from.value==='') continue;
+    if(to.tagName==='SELECT' && ![...to.options].some(o=>o.value===from.value)) continue;
+    to.value=from.value;
+  }
+
+  const mt=quickQuantityToMt();
+  if(Number.isFinite(mt)&&mt>0){
+    document.querySelector('#containerCount').value='1';
+    document.querySelector('#payloadPerContainer').value=String(mt);
+  }
+
+  const density=Number(document.querySelector('#quickDensity')?.value);
+  if(Number.isFinite(density)&&density>0){
+    document.querySelector('#densityKgPerL').value=String(density);
+  }
+
+  const taxSelect=document.querySelector('#taxRuleCountrySelect');
+  if(taxSelect && document.querySelector('#importCountry')?.value){
+    taxSelect.value=document.querySelector('#importCountry').value;
+  }
+
+  syncShipment();
+  updateIncotermStatus();
+  renderQuoteSummary();
+}
+
+function navigateWorkspace(view,{replace=false}={}){
+  const valid=['calculator','logistics','customs','history'];
+  const target=valid.includes(view)?view:'calculator';
+
+  syncQuickDraftToEngine();
+  persistWorkspaceDraft();
+
+  const url=new URL(location.href);
+  url.searchParams.set('view',target);
+  const next=url.pathname+url.search+url.hash;
+  if(replace) history.replaceState({view:target},'',next);
+  else history.pushState({view:target},'',next);
+
+  applyWorkspaceView();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
 function applyWorkspaceView(){
   const view=new URLSearchParams(location.search).get('view')||'calculator';
   const valid=['calculator','logistics','customs','history'];
@@ -3046,3 +3158,29 @@ updateQuickDensityVisibility();
 document.querySelector('#quickCalculate')?.addEventListener('click',runQuickCalculation);
 
 document.querySelector('#quickPriceUnit')?.addEventListener('change',updateQuickDensityVisibility);
+
+['quickProduct','quickPrice','quickPriceUnit','quickQuantity','quickQuantityUnit','quickDensity',
+ 'quickOriginCountry','quickImportCountry','quickTransportMode','quickIncoterm']
+  .forEach(id=>{
+    const el=document.querySelector('#'+id);
+    el?.addEventListener('input',persistWorkspaceDraft);
+    el?.addEventListener('change',()=>{
+      syncQuickDraftToEngine();
+      persistWorkspaceDraft();
+    });
+  });
+
+document.addEventListener('click',event=>{
+  const link=event.target.closest('a[href^="?view="]');
+  if(!link) return;
+  const url=new URL(link.href,location.href);
+  const view=url.searchParams.get('view');
+  if(!view) return;
+  event.preventDefault();
+  navigateWorkspace(view);
+});
+
+window.addEventListener('popstate',()=>{
+  restoreWorkspaceDraft();
+  applyWorkspaceView();
+});
