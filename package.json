@@ -5,6 +5,11 @@
   "type": "module",
   "scripts": {
     "test": "node --test packages/core/test/*.test.js",
-    "demo": "node packages/core/src/demo.js"
+    "demo": "node packages/core/src/demo.js",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
   }
 }
