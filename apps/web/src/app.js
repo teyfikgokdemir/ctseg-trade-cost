@@ -1542,6 +1542,18 @@ loadFx();
 
 async function calculateRoute(){
   const btn=document.querySelector('#calculateRoute');
+  const mode=document.querySelector('#transportMode').value;
+  if(mode!=='ROAD'){
+    lastRouteData=null;
+    document.querySelector('#routeDistance').textContent='—';
+    document.querySelector('#routeDuration').textContent='—';
+    document.querySelector('#routeTolls').textContent='—';
+    document.querySelector('#routeStatus').textContent=currentLanguage==='en'
+      ? 'Route provider not connected for '+mode
+      : mode+' için rota sağlayıcısı bağlı değil';
+    loadFreightBenchmark();
+    return;
+  }
   btn.disabled=true;btn.textContent=currentLanguage==='en'?'Calculating…':'Hesaplanıyor…';document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Loading':'Yükleniyor';
   try{
     const params=new URLSearchParams({
@@ -1575,6 +1587,14 @@ async function calculateRoute(){
   finally{btn.disabled=false;btn.textContent=currentLanguage==='en'?'Calculate route':'Rotayı hesapla'}
 }
 document.querySelector('#calculateRoute').addEventListener('click',calculateRoute);
+document.querySelector('#transportMode').addEventListener('change',()=>{
+  lastRouteData=null;
+  document.querySelector('#routeDistance').textContent='—';
+  document.querySelector('#routeDuration').textContent='—';
+  document.querySelector('#routeTolls').textContent='—';
+  document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Recalculate / verify route':'Rotayı yeniden hesapla / doğrula';
+  renderQuoteSummary();
+});
 document.querySelector('#refreshFreightBenchmark').addEventListener('click',loadFreightBenchmark);
 document.querySelector('#commercialBuffer').addEventListener('input',()=>loadFreightBenchmark());
 
