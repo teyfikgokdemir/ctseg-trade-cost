@@ -508,3 +508,45 @@ test('trade remedy provider registry falls back safely when no official connecto
   assert.equal(plan.providers.length, 0);
   assert.equal(plan.autoApply, false);
 });
+
+
+test('EU TEDB VAT provider parses standard and product-specific rates safely', async () => {
+  const { fetchEuVatRates, buildTedbVatRequest } = await import("../../providers/src/eu-tedb.js");
+
+  const xml = `<?xml version="1.0"?>
+  <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+      <vatRateResults>
+        <type>STANDARD</type>
+        <rate><type>DEFAULT</type><value>19</value></rate>
+      </vatRateResults>
+      <vatRateResults>
+        <type>REDUCED</type>
+        <rate><type>DEFAULT</type><value>7</value></rate>
+        <cnCodes><value>151219</value></cnCodes>
+      </vatRateResults>
+    </soap:Body>
+  </soap:Envelope>`;
+
+  const mockFetch = async () => new Response(xml,{status:200,headers:{"content-type":"text/xml"}});
+  const r = await fetchEuVatRates({
+    country:"DE",
+    hsCode:"151219",
+    date:"2026-10-02",
+    fetchImpl:mockFetch
+  });
+
+  assert.equal(r.standardRate,19);
+  assert.equal(r.productCandidates[0]?.rate,7);
+  assert.deepEqual(r.productCandidates[0]?.cnCodes,["151219"]);
+  assert.equal(r.productSpecificResolved,true);
+
+  const request = buildTedbVatRequest({country:"DE",hsCode:"151219",date:"2026-10-02"});
+  assert.match(request,/151219/);
+  assert.match(request,/2026-10-02/);
+});
+
+test('EU TEDB VAT provider supports EU27 only', async () => {
+  const { buildTedbVatRequest } = await import("../../providers/src/eu-tedb.js");
+  assert.throws(() => buildTedbVatRequest({country:"US"}),/EU27/);
+});
