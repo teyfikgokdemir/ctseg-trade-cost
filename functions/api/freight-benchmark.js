@@ -16,6 +16,7 @@ async function readHistoricalBenchmark(env, body) {
       AND lower(origin_city) = lower(?)
       AND lower(destination_city) = lower(?)
       AND equipment = ?
+      AND distance_km > 0
       AND datetime(created_at) >= datetime('now', '-90 days')
     ORDER BY datetime(created_at) DESC
     LIMIT 1
@@ -41,8 +42,36 @@ async function readHistoricalBenchmark(env, body) {
 async function writeBenchmarkHistory(env, body, result) {
   if (!env?.DB || !body?.workspaceId || result?.status !== "BENCHMARK_READY") return false;
 
+  const distanceKm = Number(body.distanceKm);
+  const baseAmount = Number(result?.components?.benchmarkBasePerUnit);
+  if (!Number.isFinite(distanceKm) || distanceKm <= 0 || !Number.isFinite(baseAmount) || baseAmount <= 0) {
+    return false;
+  }
+
   const workspaceId = normalizeWorkspaceId(body.workspaceId);
   await ensureTenant(env.DB, workspaceId);
+
+  const recent = await env.DB.prepare(`
+    SELECT id
+    FROM freight_benchmarks
+    WHERE tenant_id = ?
+      AND lower(origin_city) = lower(?)
+      AND lower(destination_city) = lower(?)
+      AND equipment = ?
+      AND ABS(distance_km - ?) < 1
+      AND ABS(amount_per_unit - ?) < 0.01
+      AND datetime(created_at) >= datetime('now', '-10 minutes')
+    LIMIT 1
+  `).bind(
+    workspaceId,
+    normalizeRouteText(body.origin),
+    normalizeRouteText(body.destination),
+    String(body.equipment || "").trim(),
+    distanceKm,
+    baseAmount
+  ).first();
+
+  if (recent?.id) return "DEDUPED";
 
   await env.DB.prepare(`
     INSERT INTO freight_benchmarks (
@@ -60,8 +89,8 @@ async function writeBenchmarkHistory(env, body, result) {
     normalizeRouteText(body.destination),
     body.transportMode || "ROAD",
     String(body.equipment || "").trim() || null,
-    Number.isFinite(Number(body.distanceKm)) ? Number(body.distanceKm) : null,
-    Number(result.expectedPerUnit),
+    distanceKm,
+    baseAmount,
     result.currency || body.currency || "USD",
     "DERIVED_BENCHMARK",
     "CTSEG Freight Benchmark Engine",
@@ -70,6 +99,8 @@ async function writeBenchmarkHistory(env, body, result) {
     Number(result.confidencePct) || 0,
     JSON.stringify({
       result,
+      storedValueBasis: "UNBUFFERED_BENCHMARK_BASE",
+      expectedPerUnitWithBuffer: result.expectedPerUnit,
       sourceMix: result.sourceMix || [],
       quoteCount: result.quoteCount || 0,
       marketSampleCount: result.marketSampleCount || 0,
@@ -114,11 +145,17 @@ export async function onRequestPost({ request, env }) {
     if (!usedHistoricalFallback && result.status === "BENCHMARK_READY") {
       historyPersistence.attempted = true;
       try {
-        historyPersistence.persisted = await writeBenchmarkHistory(env, body, result);
-        if (!historyPersistence.persisted) {
-          historyPersistence.reason = env?.DB
-            ? "MISSING_WORKSPACE_OR_ROUTE_METADATA"
-            : "DB_NOT_CONFIGURED";
+        const persistenceResult = await writeBenchmarkHistory(env, body, result);
+        if (persistenceResult === "DEDUPED") {
+          historyPersistence.persisted = false;
+          historyPersistence.reason = "RECENT_IDENTICAL_BENCHMARK_EXISTS";
+        } else {
+          historyPersistence.persisted = persistenceResult === true;
+          if (!historyPersistence.persisted) {
+            historyPersistence.reason = env?.DB
+              ? "MISSING_ROUTE_DISTANCE_OR_METADATA"
+              : "DB_NOT_CONFIGURED";
+          }
         }
       } catch (error) {
         historyPersistence.error = error instanceof Error ? error.message : String(error);

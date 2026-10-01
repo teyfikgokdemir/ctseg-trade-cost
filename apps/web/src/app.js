@@ -743,6 +743,10 @@ async function loadFreightBenchmark(){
         ? (currentLanguage==='en'
           ? `Benchmark uses ${r.sampleCount} evidence item(s) and was saved to D1 history.`
           : `Benchmark ${r.sampleCount} veri noktasına dayanıyor ve D1 geçmişine kaydedildi.`)
+        : historyStatus?.reason==='RECENT_IDENTICAL_BENCHMARK_EXISTS'
+          ? (currentLanguage==='en'
+            ? 'An identical recent benchmark already exists in D1; duplicate history write was skipped.'
+            : 'Aynı benchmark D1 geçmişinde zaten bulunduğu için mükerrer kayıt atlandı.')
         : historyStatus?.attempted && !historyStatus?.persisted
           ? (currentLanguage==='en'
             ? `Benchmark calculated, but D1 history write failed: ${historyStatus.error||historyStatus.reason||'unknown'}`
