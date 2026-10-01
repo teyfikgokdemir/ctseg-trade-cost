@@ -41,3 +41,12 @@ npx wrangler d1 migrations apply ctseg-trade-cost-db --remote
 - `DELETE /api/quotes?workspaceId=...&id=...`
 - `GET /api/calculations?workspaceId=...`
 - `POST /api/calculations`
+
+
+## Calculation history UI
+
+- The web UI lists the latest D1 calculation snapshots for the current anonymous workspace.
+- Historical results are explicitly treated as snapshots, not current market/customs data.
+- Reloading a snapshot restores product, HS6, route, shipment, purchase, route-profile and cost-row inputs when available.
+- After reload, the user recalculates using current tariff, FX, route and freight data.
+- New snapshots persist the full editable calculation input; older snapshots remain backward-compatible and restore only the fields they contain.

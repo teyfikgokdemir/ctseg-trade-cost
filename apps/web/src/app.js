@@ -96,6 +96,10 @@ const STATIC_TRANSLATIONS={
   'Ticari durum':'Commercial status',
   'Beklenen maliyet aralığı':'Expected cost range',
   'PDF / Yazdır':'PDF / Print',
+  'Geçmiş hesaplamalar':'Calculation history',
+  "D1 üzerinde saklanan son hesaplamaları görüntüleyin. Geçmiş sonuçlar snapshot'tır; yeniden yüklediğinizde güncel veri kaynakları tekrar sorgulanır.":'View recent calculations stored in D1. Historical results are snapshots; current data sources are queried again when you reload them.',
+  'Geçmişi yenile':'Refresh history',
+  'Geçmiş hesaplamalar yükleniyor…':'Loading calculation history…',
   'ULUSLARARASI TİCARET MALİYET RAPORU':'INTERNATIONAL TRADE COST REPORT',
   'Menşe':'Origin',
   'Çıkış':'Origin point',
@@ -282,6 +286,7 @@ function applyLanguage(lang){
   updateCostLanguage();
   updateCurrencyLanguage();
   renderQuoteSummary();
+  loadCalculationHistory();
   loadFx();
   const hs=document.querySelector('#hsCode')?.value.trim();
   if(!hs) setHsStatus(msg('hsGlobal'));
@@ -631,6 +636,158 @@ async function persistCalculationSnapshot(input,result){
     return true;
   }catch{return false}
 }
+async function loadCalculationHistory(){
+  const list=document.querySelector('#calculationHistory');
+  if(!list) return [];
+  list.innerHTML='<p class="empty">'+(currentLanguage==='en'?'Loading calculation history…':'Geçmiş hesaplamalar yükleniyor…')+'</p>';
+
+  try{
+    const params=new URLSearchParams({workspaceId,limit:'20'});
+    const res=await fetch('/api/calculations?'+params.toString(),{cache:'no-store'});
+    if(!res.ok) throw new Error();
+    const data=await res.json();
+    const items=Array.isArray(data.calculations)?data.calculations:[];
+    renderCalculationHistory(items);
+    return items;
+  }catch{
+    list.innerHTML='<p class="empty">'+(currentLanguage==='en'?'Calculation history could not be loaded.':'Geçmiş hesaplamalar yüklenemedi.')+'</p>';
+    return [];
+  }
+}
+
+function formatHistoryDate(value){
+  if(!value) return '—';
+  const date=new Date(value.includes('T')?value:value.replace(' ','T')+'Z');
+  if(Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(currentLanguage==='en'?'en-US':'tr-TR',{
+    dateStyle:'medium',timeStyle:'short'
+  }).format(date);
+}
+
+function renderCalculationHistory(items){
+  const list=document.querySelector('#calculationHistory');
+  if(!items.length){
+    list.innerHTML='<p class="empty">'+(currentLanguage==='en'?'No saved calculations yet.':'Henüz kayıtlı hesaplama yok.')+'</p>';
+    return;
+  }
+
+  list.replaceChildren();
+  for(const item of items){
+    const input=item.input||{};
+    const result=item.result||{};
+    const product=input.product?.name||'—';
+    const hs=input.product?.hsCode||'—';
+    const origin=input.route?.origin||'—';
+    const destination=input.route?.destination||'—';
+    const total=Number(result.total);
+
+    const row=document.createElement('div');
+    row.className='history-item';
+
+    const main=document.createElement('div');
+    main.className='history-main';
+    const mainStrong=document.createElement('strong');
+    mainStrong.textContent=product;
+    const mainMeta=document.createElement('span');
+    mainMeta.textContent='HS '+hs+' · '+formatHistoryDate(item.createdAt);
+    main.append(mainStrong,mainMeta);
+
+    const route=document.createElement('div');
+    route.className='history-route';
+    const routeStrong=document.createElement('strong');
+    routeStrong.textContent=origin+' → '+destination;
+    const shipment=input.shipment||{};
+    const routeMeta=document.createElement('span');
+    routeMeta.textContent=(shipment.containerCount||'—')+' × '+(shipment.containerType||'—');
+    route.append(routeStrong,routeMeta);
+
+    const totalBox=document.createElement('div');
+    totalBox.className='history-total';
+    const totalStrong=document.createElement('strong');
+    totalStrong.textContent=Number.isFinite(total)?'$'+money(total,0):'—';
+    const totalMeta=document.createElement('span');
+    totalMeta.textContent=currentLanguage==='en'?'historical snapshot':'geçmiş snapshot';
+    totalBox.append(totalStrong,totalMeta);
+
+    const button=document.createElement('button');
+    button.type='button';
+    button.textContent=currentLanguage==='en'?'Reload':'Yeniden yükle';
+    button.addEventListener('click',()=>restoreCalculationSnapshot(item));
+
+    row.append(main,route,totalBox,button);
+    list.appendChild(row);
+  }
+}
+
+async function restoreCalculationSnapshot(item){
+  const input=item?.input||{};
+  const result=item?.result||{};
+
+  if(input.product?.name!==undefined) document.querySelector('#productName').value=input.product.name;
+  if(input.product?.hsCode!==undefined) document.querySelector('#hsCode').value=input.product.hsCode;
+
+  if(input.route?.origin!==undefined) document.querySelector('#origin').value=input.route.origin;
+  if(input.route?.destination!==undefined) document.querySelector('#destination').value=input.route.destination;
+  if(input.route?.originCountry!==undefined) document.querySelector('#originCountry').value=input.route.originCountry||'';
+  if(input.route?.importCountry!==undefined) document.querySelector('#importCountry').value=input.route.importCountry||'';
+  if(input.route?.incoterm && [...document.querySelector('#incoterm').options].some(o=>o.value===input.route.incoterm)){
+    document.querySelector('#incoterm').value=input.route.incoterm;
+  }
+
+  const shipment=input.shipment||{};
+  if(shipment.containerType && [...document.querySelector('#containerType').options].some(o=>o.value===shipment.containerType)){
+    document.querySelector('#containerType').value=shipment.containerType;
+  }
+  if(Number(shipment.containerCount)>0) document.querySelector('#containerCount').value=String(shipment.containerCount);
+  const inferredPayload=Number(shipment.payloadPerContainer)>0
+    ? Number(shipment.payloadPerContainer)
+    : (Number(shipment.netMt)>0&&Number(shipment.containerCount)>0
+      ? Number(shipment.netMt)/Number(shipment.containerCount)
+      : null);
+  if(inferredPayload) document.querySelector('#payloadPerContainer').value=String(inferredPayload);
+
+  if(Number(input.purchase?.price)>=0) document.querySelector('#price').value=String(input.purchase.price);
+  if(input.purchase?.priceUnit && [...document.querySelector('#priceUnit').options].some(o=>o.value===input.purchase.priceUnit)){
+    document.querySelector('#priceUnit').value=input.purchase.priceUnit;
+  }
+
+  if(Number.isFinite(Number(input.routeProfile?.grossWeightKg))) document.querySelector('#grossWeightKg').value=String(input.routeProfile.grossWeightKg);
+  if(Number.isFinite(Number(input.routeProfile?.heightCm))) document.querySelector('#heightCm').value=String(input.routeProfile.heightCm);
+  if(Number.isFinite(Number(input.routeProfile?.commercialBufferPct))) document.querySelector('#commercialBuffer').value=String(input.routeProfile.commercialBufferPct);
+
+  if(Array.isArray(input.costRows)&&input.costRows.length){
+    rows.replaceChildren();
+    for(const row of input.costRows){
+      addRow([row.label,row.method,row.rate,row.source]);
+    }
+  }
+
+  lastRouteData=null;
+  document.querySelector('#routeDistance').textContent='—';
+  document.querySelector('#routeDuration').textContent='—';
+  document.querySelector('#routeTolls').textContent='—';
+  document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Recalculate route':'Rotayı yeniden hesapla';
+  document.querySelector('#results').hidden=true;
+
+  syncShipment();
+  refreshCalculatedAmounts();
+  renderQuoteSummary();
+
+  const notice=document.querySelector('#historySnapshotNotice');
+  notice.hidden=false;
+  const historicalTotal=Number(result.total);
+  notice.textContent=(currentLanguage==='en'?'Historical snapshot loaded':'Geçmiş snapshot yüklendi')
+    +(Number.isFinite(historicalTotal)?' · $'+money(historicalTotal,0):'')
+    +(currentLanguage==='en'
+      ? '. Recalculate to use current tariff, FX, route and freight data.'
+      : '. Güncel tarife, kur, rota ve navlun verileri için hesabı yeniden çalıştırın.');
+
+  const hs=String(input.product?.hsCode||'');
+  if(/^\d{6}$/.test(hs)) validateHsCode(hs);
+  else loadTariff();
+
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 function currentQuoteKey(){
   return {
     origin:normalizeText(document.querySelector('#origin').value),
@@ -838,8 +995,12 @@ document.querySelector('#applyQuoteAverage').addEventListener('click',()=>{
 });
 renderQuoteSummary();
 hydrateQuotesFromD1();
+loadCalculationHistory();
+document.querySelector('#refreshCalculationHistory').addEventListener('click',loadCalculationHistory);
 
 document.querySelector('#calculate').addEventListener('click',()=>{
+  const notice=document.querySelector('#historySnapshotNotice');
+  if(notice) notice.hidden=true;
   const s=shipment();
   const price=positive('#price');
   if(!s.count||!s.payload||!price){alert(currentLanguage==='en'?'Check container count, net payload and purchase price.':'Konteyner sayısı, net yük ve alış fiyatını kontrol edin.');return}
@@ -897,15 +1058,39 @@ document.querySelector('#calculate').addEventListener('click',()=>{
   document.querySelector('#range').textContent='$'+money(low,0)+' – $'+money(high,0);
   document.querySelector('#routeText').textContent=
     `${document.querySelector('#productName').value} · ${document.querySelector('#origin').value} → ${document.querySelector('#destination').value} · ${document.querySelector('#incoterm').value} · ${s.count} × ${document.querySelector('#containerType').value}`;
+  const snapshotCostRows=costRows.map(row=>({
+    label:row.querySelector('.label').value,
+    method:row.querySelector('.method').value,
+    rate:Number(row.querySelector('.rate').value)||0,
+    source:row.querySelector('.source').value
+  }));
+
   persistCalculationSnapshot({
     product:{name:document.querySelector('#productName').value,hsCode:document.querySelector('#hsCode').value},
-    route:{origin:document.querySelector('#origin').value,destination:document.querySelector('#destination').value,originCountry:document.querySelector('#originCountry').value,importCountry:document.querySelector('#importCountry').value},
-    shipment:{containerType:document.querySelector('#containerType').value,containerCount:s.count,netMt:s.mt},
-    purchase:{price:Number(document.querySelector('#price').value)||0,priceUnit:document.querySelector('#priceUnit').value}
+    route:{
+      origin:document.querySelector('#origin').value,
+      destination:document.querySelector('#destination').value,
+      originCountry:document.querySelector('#originCountry').value,
+      importCountry:document.querySelector('#importCountry').value,
+      incoterm:document.querySelector('#incoterm').value
+    },
+    routeProfile:{
+      grossWeightKg:Number(document.querySelector('#grossWeightKg').value)||0,
+      heightCm:Number(document.querySelector('#heightCm').value)||0,
+      commercialBufferPct:bufferPct
+    },
+    shipment:{
+      containerType:document.querySelector('#containerType').value,
+      containerCount:s.count,
+      payloadPerContainer:s.payload,
+      netMt:s.mt
+    },
+    purchase:{price:Number(document.querySelector('#price').value)||0,priceUnit:document.querySelector('#priceUnit').value},
+    costRows:snapshotCostRows
   },{
     currency:'USD',goodsTotal:goods,extraTotal:extra,total,range:{low,high},confidencePct:confidence,
     estimateSharePct:estimateShare,commercialBufferPct:bufferPct,safeTotal
-  });
+  }).then(saved=>{if(saved) loadCalculationHistory()});
 
   document.querySelector('#results').hidden=false;
 });
