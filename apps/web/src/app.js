@@ -339,15 +339,15 @@ const methodLabelsEn={FIXED:'Per shipment',PER_CONTAINER:'Per equipment',PER_MT:
 const sourceLabels=currentLanguage==='en'?sourceLabelsEn:sourceLabelsTr;
 const methodLabels=currentLanguage==='en'?methodLabelsEn:methodLabelsTr;
 const defaults=[
-  ['Çıkış iç nakliye','PER_CONTAINER','','ESTIMATE'],
-  ['İhracat gümrüğü ve belgeler','FIXED','','ESTIMATE'],
-  ['Uluslararası navlun','PER_CONTAINER','','ESTIMATE'],
-  ['Yük sigortası','PCT_GOODS','','ESTIMATE'],
-  ['Varış / sınır masrafları','PER_CONTAINER','','ESTIMATE'],
-  ['İthalat gümrük vergisi (doğrulanacak)','PCT_CUSTOMS','','ESTIMATE'],
-  ['İthalat KDV / yerel vergi (doğrulanacak)','PCT_IMPORT_TAX','','ESTIMATE'],
-  ['Gümrük müşavirliği','FIXED','','ESTIMATE'],
-  ['Varış iç nakliye','PER_CONTAINER','','ESTIMATE']
+  ['Çıkış iç nakliye','PER_CONTAINER','','ESTIMATE','ORIGIN_INLAND'],
+  ['İhracat gümrüğü ve belgeler','FIXED','','ESTIMATE','EXPORT_CLEARANCE'],
+  ['Uluslararası navlun','PER_CONTAINER','','ESTIMATE','FREIGHT_INTL'],
+  ['Yük sigortası','PCT_GOODS','','ESTIMATE','INSURANCE'],
+  ['Varış / sınır masrafları','PER_CONTAINER','','ESTIMATE','DESTINATION_CHARGES'],
+  ['İthalat gümrük vergisi (doğrulanacak)','PCT_CUSTOMS','','ESTIMATE','IMPORT_DUTY'],
+  ['İthalat KDV / yerel vergi (doğrulanacak)','PCT_IMPORT_TAX','','ESTIMATE','IMPORT_TAX'],
+  ['Gümrük müşavirliği','FIXED','','ESTIMATE','CUSTOMS_BROKERAGE'],
+  ['Varış iç nakliye','PER_CONTAINER','','ESTIMATE','DESTINATION_INLAND']
 ];
 const rows=document.querySelector('#costRows');
 const quoteStoreKey='ctseg_trade_cost_quotes_v1';
@@ -423,9 +423,10 @@ function findImportTaxRow(){
   return [...document.querySelectorAll('.cost-row')]
     .find(r=>/ithalat kdv|import vat|local tax|yerel vergi/i.test(r.querySelector('.label').value));
 }
-function addRow([label='',method='FIXED',rate=0,source='ESTIMATE']={}){
+function addRow([label='',method='FIXED',rate=0,source='ESTIMATE',code='OTHER']={}){
   const div=document.createElement('div');
   div.className='cost-row';
+  div.dataset.code=code||'OTHER';
   div.innerHTML=`
     <input class="label" value="${label}">
     <select class="method">${Object.keys(methodLabelsTr).map(k=>`<option value="${k}" ${k===method?'selected':''}>${(currentLanguage==='en'?methodLabelsEn:methodLabelsTr)[k]}</option>`).join('')}</select>
@@ -932,7 +933,7 @@ async function restoreCalculationSnapshot(item){
   if(Array.isArray(input.costRows)&&input.costRows.length){
     rows.replaceChildren();
     for(const row of input.costRows){
-      addRow([row.label,row.method,row.rate,row.source]);
+      addRow([row.label,row.method,row.rate,row.source,row.code||'OTHER']);
     }
   }
 
@@ -1323,7 +1324,8 @@ document.querySelector('#calculate').addEventListener('click',()=>{
     label:row.querySelector('.label').value,
     method:row.querySelector('.method').value,
     rate:Number(row.querySelector('.rate').value)||0,
-    source:row.querySelector('.source').value
+    source:row.querySelector('.source').value,
+    code:row.dataset.code||'OTHER'
   }));
 
   persistCalculationSnapshot({
