@@ -1,7 +1,252 @@
+const languageStoreKey='ctseg_trade_cost_language_v1';
+let currentLanguage=localStorage.getItem(languageStoreKey)==='en'?'en':'tr';
+
+const STATIC_TRANSLATIONS={
+  'ULUSLARARASI TİCARET MALİYET ZEKÂSI':'INTERNATIONAL TRADE COST INTELLIGENCE',
+  'Toplam Teslim Maliyeti':'Total Landed Cost',
+  'Konteyner, ürün, rota ve ülke bazında ithalat / ihracat maliyet motoru.':'Import / export cost engine by container, product, route and country.',
+  'Dil':'Language',
+  'Sevkiyat ve ürün':'Shipment and product',
+  'Nakliye konteyner bazlı; ürün ve vergi hesapları kendi gerçek matrahına göre çalışır.':'Freight is container-based; product and tax calculations use their actual tax bases.',
+  'Ürün':'Product',
+  'HS Code':'HS Code',
+  'Üründen ara':'Search by product',
+  'HS 2022 global sınıflandırma':'HS 2022 global classification',
+  'Menşe ülke':'Country of origin',
+  'Çıkış noktası':'Origin point',
+  'Teslim noktası':'Delivery point',
+  'İthalat ülkesi':'Import country',
+  'Konteyner tipi':'Container type',
+  'Konteyner sayısı':'Container count',
+  'Net yük / konteyner (MT)':'Net payload / container (MT)',
+  'Toplam net miktar (MT)':'Total net quantity (MT)',
+  'Alış fiyatı':'Purchase price',
+  'Fiyat birimi':'Price unit',
+  'Gümrük ve tarife doğrulama':'Customs and tariff verification',
+  'HS6, menşe ve ithalat ülkesine göre WTO resmi tarife verisi otomatik sorgulanır.':'Official WTO tariff data is queried automatically by HS6, origin and import country.',
+  'Tarifeyi yenile':'Refresh tariff',
+  'MFN oranı':'MFN rate',
+  'Kaynak yılı':'Source year',
+  'Durum':'Status',
+  'Bekliyor':'Waiting',
+  'HS kodu ve ülkeler seçildiğinde otomatik sorgulanır.':'Queried automatically when the HS code and countries are selected.',
+  'Rota ve taşıma doğrulama':'Route and transport verification',
+  'Gerçek rota sağlayıcısı bağlandığında mesafe, sürüş süresi ve mevcut yol ücretleri burada doğrulanır.':'Distance, driving time and available tolls are verified here when a live route provider is connected.',
+  'Rotayı hesapla':'Calculate route',
+  'Araç brüt ağırlığı (kg)':'Vehicle gross weight (kg)',
+  'Araç yüksekliği (cm)':'Vehicle height (cm)',
+  'Ticari koruma payı (%)':'Commercial safety buffer (%)',
+  'Mesafe':'Distance',
+  'Sürüş süresi':'Driving time',
+  'Yol ücretleri':'Tolls',
+  'Rota verisi':'Route data',
+  'Güncel döviz kuru':'Current exchange rate',
+  'Kuru yenile':'Refresh rate',
+  'Kaynak para birimi':'Base currency',
+  'Hedef para birimi':'Quote currency',
+  'Referans kur':'Reference rate',
+  'Henüz yüklenmedi':'Not loaded yet',
+  'Forwarder teklif havuzu':'Forwarder quote pool',
+  'Gerçek teklifleri kaydet. Sistem aynı rota ve konteyner tipindeki geçerli tekliflerden güncel değer üretir.':'Save real quotes. The system derives a current value from valid quotes for the same route and container type.',
+  'Uygun navlunu uygula':'Apply matching freight',
+  'Firma / forwarder':'Company / forwarder',
+  'USD / konteyner':'USD / container',
+  'Teklif tarihi':'Quote date',
+  'Geçerlilik sonu':'Valid until',
+  'Teklifi kaydet':'Save quote',
+  'Eşleşen teklif':'Matching quotes',
+  'Güncel ortalama':'Current average',
+  'Son teklif':'Latest quote',
+  'Veri durumu':'Data status',
+  'Veri yok':'No data',
+  'Maliyet kalemleri':'Cost items',
+  'Tüm sonuçlar USD olarak normalize edilir. Hesaplama yöntemi her kaleme ayrı uygulanır.':'All results are normalized to USD. Each cost item uses its own calculation method.',
+  '+ Maliyet ekle':'+ Add cost',
+  'Açıklama':'Description',
+  'Yöntem':'Method',
+  'Birim değer':'Unit value',
+  'Kaynak':'Source',
+  'Hesaplanan':'Calculated',
+  'Toplam teslim maliyetini hesapla':'Calculate total landed cost',
+  'Nihai birim maliyet':'Final unit cost',
+  'Ürün EXW maliyeti':'Product EXW cost',
+  'USD · ürün bedeli':'USD · product value',
+  'EXW sonrası ek maliyet':'Post-EXW additional cost',
+  'USD · lojistik, gümrük, vergi vb.':'USD · logistics, customs, taxes, etc.',
+  'Nihai toplam maliyet':'Final total cost',
+  'USD · ürün + tüm ek maliyetler':'USD · product + all additional costs',
+  'Ürün birim fiyatı':'Product unit price',
+  'Ek maliyet / birim':'Additional cost / unit',
+  'Toplam sevkiyat':'Total shipment',
+  'Veri güveni':'Data confidence',
+  'hesap güven seviyesi':'calculation confidence level',
+  'Koruma paylı toplam maliyet':'Buffered total cost',
+  'Belirsizlik + ticari koruma payı':'Uncertainty + commercial safety buffer',
+  'Koruma paylı birim maliyet':'Buffered unit cost',
+  'Tahmini gider oranı':'Estimated-cost share',
+  'Toplam ek maliyet içindeki tahmini veri':'Estimated data within additional costs',
+  'Ticari durum':'Commercial status',
+  'Beklenen maliyet aralığı':'Expected cost range',
+  'PDF / Yazdır':'PDF / Print',
+  'ULUSLARARASI TİCARET MALİYET RAPORU':'INTERNATIONAL TRADE COST REPORT',
+  'Menşe':'Origin',
+  'Çıkış':'Origin point',
+  'Teslim':'Delivery',
+  'Konteyner':'Container',
+  'Toplam miktar':'Total quantity',
+  'Koruma paylı toplam':'Buffered total',
+  'Maliyet dökümü':'Cost breakdown',
+  'Kalem':'Item',
+  'Tutar':'Amount',
+  'Bu rapor hesaplama tarihinde mevcut olan veri, teklif ve kullanıcı girdilerine dayanır. Tahmini ve piyasa ortalaması niteliğindeki kalemler kesin teklif veya resmî tarife yerine geçmez.':'This report is based on data, quotes and user inputs available on the calculation date. Estimated and market-average items do not replace binding quotes or official tariff determinations.',
+  'Veri politikası':'Data policy',
+  'Navlun konteyner/araç bazlı; gümrük ve vergi kalemleri HS Code, menşe, hedef ülke ve ilgili matrah üzerinden hesaplanır. Gerçek teklifler ve resmî veriler tahminlerin önüne geçer.':'Freight is container/vehicle based; customs and tax items are calculated from HS Code, origin, destination country and the relevant tax base. Real quotes and official data take precedence over estimates.',
+  'Ülke seçin':'Select country',
+  'Ülkeler yükleniyor…':'Loading countries…',
+  'Ülke listesi alınamadı':'Country list unavailable',
+  '20 ft':'20 ft',
+  '40 ft':'40 ft'
+};
+
+const STATIC_REVERSE_EN=new Map(Object.entries(STATIC_TRANSLATIONS).map(([tr,en])=>[en,tr]));
+
+const UI_MESSAGES={
+  tr:{
+    hsGlobal:'HS 2022 global sınıflandırma',
+    hsSearching:'HS adayları aranıyor…',
+    hsNoMatch:'HS6 adayı bulunamadı',
+    hsNoMatchLong:'Eşleşen HS6 adayı bulunamadı.',
+    hsDataError:'HS verisi alınamadı · tekrar deneyin',
+    hsSixDigits:'6 haneli HS kodu seçin veya ürün adıyla arayın',
+    hsValidating:'HS kodu doğrulanıyor…',
+    hsInvalid:'HS kodu doğrulanamadı',
+    productFirst:'Önce ürün adını yazın',
+    productMatch:'Ürün eşleşmesi',
+    tariffMissing:'Eksik seçim',
+    tariffMissingNote:'6 haneli HS kodu, menşe ve ithalat ülkesi gerekli.',
+    tariffLoading:'Sorgulanıyor…',
+    tariffNoData:'Veri alınamadı',
+    tariffNoDataNote:'WTO tarife verisi alınamadı; manuel doğrulama gerekli.',
+    highConfidence:'Yüksek güven',
+    mediumConfidence:'Orta güven',
+    verifyRequired:'Doğrulama gerekli',
+    tariffMfn:'WTO MFN oranı otomatik uygulandı. Nihai beyan öncesi ulusal tarife satırı doğrulanmalıdır.',
+    countriesLoading:'Ülkeler yükleniyor…',
+    countrySelect:'Ülke seçin'
+  },
+  en:{
+    hsGlobal:'HS 2022 global classification',
+    hsSearching:'Searching HS candidates…',
+    hsNoMatch:'No HS6 candidate found',
+    hsNoMatchLong:'No matching HS6 candidate found.',
+    hsDataError:'HS data unavailable · try again',
+    hsSixDigits:'Select a 6-digit HS code or search by product name',
+    hsValidating:'Validating HS code…',
+    hsInvalid:'HS code could not be validated',
+    productFirst:'Enter a product name first',
+    productMatch:'Product match',
+    tariffMissing:'Incomplete selection',
+    tariffMissingNote:'A 6-digit HS code, origin and import country are required.',
+    tariffLoading:'Querying…',
+    tariffNoData:'Data unavailable',
+    tariffNoDataNote:'WTO tariff data could not be retrieved; manual verification is required.',
+    highConfidence:'High confidence',
+    mediumConfidence:'Medium confidence',
+    verifyRequired:'Verification required',
+    tariffMfn:'The WTO MFN rate was applied automatically. Verify the national tariff line before the final declaration.',
+    countriesLoading:'Loading countries…',
+    countrySelect:'Select country'
+  }
+};
+
+const COST_LABEL_TRANSLATIONS={
+  'Çıkış iç nakliye':'Origin inland haulage',
+  'İhracat gümrüğü ve belgeler':'Export customs & documents',
+  'Uluslararası navlun':'International freight',
+  'Yük sigortası':'Cargo insurance',
+  'Varış / sınır masrafları':'Destination / border charges',
+  'İthalat gümrük vergisi (doğrulanacak)':'Import duty (to be verified)',
+  'İthalat gümrük vergisi':'Import duty',
+  'Gümrük müşavirliği':'Customs brokerage',
+  'Varış iç nakliye':'Destination inland haulage'
+};
+const COST_LABEL_REVERSE=new Map(Object.entries(COST_LABEL_TRANSLATIONS).map(([tr,en])=>[en,tr]));
+
+function msg(key){return UI_MESSAGES[currentLanguage]?.[key]||UI_MESSAGES.tr[key]||key}
+
+function translateStaticDocument(){
+  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+  const nodes=[];
+  while(walker.nextNode()) nodes.push(walker.currentNode);
+  for(const node of nodes){
+    const raw=node.nodeValue;
+    const text=raw.trim();
+    if(!text) continue;
+    const key=STATIC_TRANSLATIONS[text]?text:STATIC_REVERSE_EN.get(text);
+    if(!key) continue;
+    const translated=currentLanguage==='en'?STATIC_TRANSLATIONS[key]:key;
+    node.nodeValue=raw.replace(text,translated);
+  }
+
+  const placeholders={
+    productName:{tr:'Ayçiçek yağı',en:'Sunflower oil'},
+    hsCode:{tr:'Kod veya ürün adı yazın…',en:'Type HS code or product name…'},
+    quoteProvider:{tr:'Örn. ABC Lojistik',en:'e.g. ABC Logistics'}
+  };
+  for(const [id,values] of Object.entries(placeholders)){
+    const el=document.querySelector('#'+id);
+    if(!el) continue;
+    if(id==='productName'){
+      const known=['Ayçiçek yağı','Sunflower oil'];
+      if(known.includes(el.value)) el.value=values[currentLanguage];
+    }else{
+      el.placeholder=values[currentLanguage];
+    }
+  }
+
+  document.documentElement.lang=currentLanguage;
+  document.title=currentLanguage==='en'?'International Trade Cost Calculator':'Uluslararası Ticaret Maliyet Hesaplama';
+}
+
+function updateCostLanguage(){
+  document.querySelectorAll('.cost-row').forEach(row=>{
+    const input=row.querySelector('.label');
+    const value=input.value;
+    const tr=COST_LABEL_TRANSLATIONS[value]?value:COST_LABEL_REVERSE.get(value);
+    if(tr) input.value=currentLanguage==='en'?COST_LABEL_TRANSLATIONS[tr]:tr;
+
+    const method=row.querySelector('.method');
+    [...method.options].forEach(option=>{
+      option.textContent=(currentLanguage==='en'?methodLabelsEn:methodLabelsTr)[option.value]||option.value;
+    });
+    const source=row.querySelector('.source');
+    [...source.options].forEach(option=>{
+      option.textContent=(currentLanguage==='en'?sourceLabelsEn:sourceLabelsTr)[option.value]||option.value;
+    });
+  });
+}
+
+function applyLanguage(lang){
+  currentLanguage=lang==='en'?'en':'tr';
+  localStorage.setItem(languageStoreKey,currentLanguage);
+  const select=document.querySelector('#languageSelect');
+  if(select) select.value=currentLanguage;
+  translateStaticDocument();
+  updateCostLanguage();
+  renderQuoteSummary();
+  loadFx();
+  const hs=document.querySelector('#hsCode')?.value.trim();
+  if(!hs) setHsStatus(msg('hsGlobal'));
+}
+
 const weights={LIVE:1,OFFICIAL:.98,QUOTE:.92,MARKET_AVG:.82,MANUAL:.75,ESTIMATE:.60};
 const spreads={LIVE:.02,OFFICIAL:.005,QUOTE:.04,MARKET_AVG:.10,MANUAL:.08,ESTIMATE:.18};
-const sourceLabels={LIVE:'Canlı veri',OFFICIAL:'Resmî kaynak',QUOTE:'Güncel teklif',MARKET_AVG:'Piyasa ortalaması',MANUAL:'Manuel veri',ESTIMATE:'Tahmin'};
-const methodLabels={FIXED:'Sevkiyat başına',PER_CONTAINER:'Konteyner başına',PER_MT:'MT başına',PCT_GOODS:'Ürün bedelinin %',PCT_CUSTOMS:'Gümrük kıymetinin %'};
+const sourceLabelsTr={LIVE:'Canlı veri',OFFICIAL:'Resmî kaynak',QUOTE:'Güncel teklif',MARKET_AVG:'Piyasa ortalaması',MANUAL:'Manuel veri',ESTIMATE:'Tahmin'};
+const sourceLabelsEn={LIVE:'Live data',OFFICIAL:'Official source',QUOTE:'Current quote',MARKET_AVG:'Market average',MANUAL:'Manual data',ESTIMATE:'Estimate'};
+const methodLabelsTr={FIXED:'Sevkiyat başına',PER_CONTAINER:'Konteyner başına',PER_MT:'MT başına',PCT_GOODS:'Ürün bedelinin %',PCT_CUSTOMS:'Gümrük kıymetinin %'};
+const methodLabelsEn={FIXED:'Per shipment',PER_CONTAINER:'Per container',PER_MT:'Per MT',PCT_GOODS:'% of goods value',PCT_CUSTOMS:'% of customs value'};
+const sourceLabels=currentLanguage==='en'?sourceLabelsEn:sourceLabelsTr;
+const methodLabels=currentLanguage==='en'?methodLabelsEn:methodLabelsTr;
 const defaults=[
   ['Çıkış iç nakliye','PER_CONTAINER',1800,'MARKET_AVG'],
   ['İhracat gümrüğü ve belgeler','FIXED',950,'MARKET_AVG'],
@@ -15,7 +260,7 @@ const defaults=[
 const rows=document.querySelector('#costRows');
 const quoteStoreKey='ctseg_trade_cost_quotes_v1';
 
-function money(n,d=2){return new Intl.NumberFormat('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(Number(n)||0)}
+function money(n,d=2){return new Intl.NumberFormat(currentLanguage==='en'?'en-US':'tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(Number(n)||0)}
 function positive(selector){const v=Number(document.querySelector(selector).value);return Number.isFinite(v)&&v>0?v:null}
 function todayISO(){return new Date().toISOString().slice(0,10)}
 function normalizeText(v){return (v||'').trim().toLowerCase().replace(/\s+/g,' ')}
