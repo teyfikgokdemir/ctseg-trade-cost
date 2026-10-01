@@ -61,6 +61,16 @@ const STATIC_TRANSLATIONS={
   'Durum':'Status',
   'Bekliyor':'Waiting',
   'HS kodu ve ülkeler seçildiğinde otomatik sorgulanır.':'Queried automatically when the HS code and countries are selected.',
+  'Preferential / FTA doğrulama':'Preferential / FTA verification',
+  'WTO preferential verisi yalnız adaydır; uygunluk ve uygulanabilir oran ayrıca doğrulanmalıdır.':'WTO preferential data is candidate evidence only; eligibility and the executable rate must be verified separately.',
+  'Aday preferential oran':'Preferential candidate rate',
+  'Uygunluk':'Eligibility',
+  'Doğrulanmadı':'Not confirmed',
+  'Uygun değil':'Not eligible',
+  'Uygun':'Eligible',
+  'Doğrulanmış preferential oran (%)':'Verified preferential rate (%)',
+  'Scheme / belge referansı':'Scheme / evidence reference',
+  'Uygunluk doğrulanana kadar MFN güvenli varsayılan olarak kalır.':'MFN remains the safe default until preferential eligibility is verified.',
   'Ülke vergi kuralı':'Country tax rule',
   'Hedef ülke için otomatik vergi modeli mevcutsa gösterilir. Oran doğrulanmadan sistem vergi uydurmaz.':'Shows whether an automated tax model exists for the destination country. The system never invents a tax rate before verification.',
   'Vergi kuralını yenile':'Refresh tax rule',
@@ -564,6 +574,8 @@ syncShipment();
 let countryReference=[];
 let tariffRequestSeq=0;
 let taxRuleRequestSeq=0;
+let lastTariffData=null;
+let lastTariffKey=null;
 
 async function loadCountries(){
   const originSelect=document.querySelector('#originCountry');
@@ -697,23 +709,128 @@ function findDutyRow(){
     .find(r=>/ithalat gümrük vergisi|import duty/i.test(r.querySelector('.label').value));
 }
 
-function applyTariffToUi(normalized){
+function currentTariffKey(){
+  return [
+    document.querySelector('#hsCode')?.value.trim()||'',
+    document.querySelector('#originCountry')?.value||'',
+    document.querySelector('#importCountry')?.value||''
+  ].join(':');
+}
+
+function resetPreferentialVerification(){
+  const eligibility=document.querySelector('#preferentialEligibility');
+  const rate=document.querySelector('#verifiedPreferentialRate');
+  const scheme=document.querySelector('#preferentialSchemeReference');
+  if(eligibility) eligibility.value='NOT_CONFIRMED';
+  if(rate) rate.value='';
+  if(scheme) scheme.value='';
+}
+
+function preferentialDecision(){
+  const normalized=lastTariffData?.normalized||{};
+  const mfnRaw=normalized?.appliedRateDecision?.rate;
+  const mfn=(mfnRaw===null||mfnRaw===undefined||mfnRaw==='')?null:Number(mfnRaw);
+  const candidateRaw=normalized?.preferentialCandidate?.rate;
+  const candidate=(candidateRaw===null||candidateRaw===undefined||candidateRaw==='')?null:Number(candidateRaw);
+  const eligibility=document.querySelector('#preferentialEligibility')?.value||'NOT_CONFIRMED';
+  const verifiedRaw=document.querySelector('#verifiedPreferentialRate')?.value;
+  const verified=(verifiedRaw===null||verifiedRaw===undefined||verifiedRaw==='')?null:Number(verifiedRaw);
+  const scheme=document.querySelector('#preferentialSchemeReference')?.value.trim()||'';
+
+  if(eligibility==='ELIGIBLE' && Number.isFinite(verified) && verified>=0 && scheme){
+    return {
+      rate:verified,
+      basis:'PREFERENTIAL_VERIFIED',
+      source:'MANUAL',
+      scheme,
+      candidateRate:Number.isFinite(candidate)?candidate:null,
+      mfnRate:Number.isFinite(mfn)?mfn:null
+    };
+  }
+
+  return {
+    rate:Number.isFinite(mfn)?mfn:null,
+    basis:Number.isFinite(mfn)?'MFN':null,
+    source:Number.isFinite(mfn)?'OFFICIAL':'ESTIMATE',
+    scheme:scheme||null,
+    candidateRate:Number.isFinite(candidate)?candidate:null,
+    mfnRate:Number.isFinite(mfn)?mfn:null,
+    preferentialIncomplete:eligibility==='ELIGIBLE'
+  };
+}
+
+function renderPreferentialPanel(){
+  const candidateEl=document.querySelector('#preferentialCandidateRate');
+  const noteEl=document.querySelector('#preferentialNote');
+  const candidate=lastTariffData?.normalized?.preferentialCandidate;
+  if(candidateEl){
+    candidateEl.value=Number.isFinite(Number(candidate?.rate))
+      ? '%'+money(Number(candidate.rate),2)
+      : '';
+  }
+
+  const decision=preferentialDecision();
+  if(noteEl){
+    if(decision.basis==='PREFERENTIAL_VERIFIED'){
+      noteEl.textContent=currentLanguage==='en'
+        ? 'Verified preferential rate '+money(decision.rate,2)+'% will be used. Reference: '+decision.scheme
+        : 'Doğrulanmış preferential %'+money(decision.rate,2)+' oranı kullanılacak. Referans: '+decision.scheme;
+    }else if(decision.preferentialIncomplete){
+      noteEl.textContent=currentLanguage==='en'
+        ? 'Eligibility is marked eligible, but a verified rate and scheme/reference are still required. MFN remains in use.'
+        : 'Uygunluk “uygun” seçildi ancak doğrulanmış oran ve scheme/referans eksik. MFN kullanılmaya devam ediyor.';
+    }else if(candidate){
+      noteEl.textContent=currentLanguage==='en'
+        ? 'WTO candidate '+money(Number(candidate.rate),2)+'% is not applied automatically. MFN remains the safe default.'
+        : 'WTO aday oranı %'+money(Number(candidate.rate),2)+' otomatik uygulanmaz. MFN güvenli varsayılan olarak kalır.';
+    }else{
+      noteEl.textContent=currentLanguage==='en'
+        ? 'No preferential candidate was returned. MFN remains the reference rate.'
+        : 'Preferential aday dönmedi. MFN referans oran olarak kalır.';
+    }
+  }
+}
+
+function applyTariffSelection(){
   const duty=findDutyRow();
   if(!duty) return;
-
-  const rawRate=normalized?.appliedRateDecision?.rate;
+  const normalized=lastTariffData?.normalized||null;
+  const decision=preferentialDecision();
   const hasResolvedYear=Number.isFinite(Number(normalized?.resolvedYear));
-  const rate=rawRate === null || rawRate === undefined || rawRate === '' ? null : Number(rawRate);
-  if(hasResolvedYear && Number.isFinite(rate)){
-    duty.querySelector('.rate').value=String(rate);
-    duty.querySelector('.source').value='OFFICIAL';
+
+  if(hasResolvedYear && Number.isFinite(decision.rate)){
+    duty.querySelector('.rate').value=String(decision.rate);
+    duty.querySelector('.source').value=decision.source;
     duty.querySelector('.label').value=currentLanguage==='en'?'Import duty':'İthalat gümrük vergisi';
+    const rateEl=document.querySelector('#tariffRate');
+    if(rateEl){
+      rateEl.textContent='%'+money(decision.rate,2)+(decision.basis==='PREFERENTIAL_VERIFIED'?' · PREF':' · MFN');
+    }
   }else{
     duty.querySelector('.rate').value='';
     duty.querySelector('.source').value='ESTIMATE';
     duty.querySelector('.label').value=currentLanguage==='en'?'Import duty (to be verified)':'İthalat gümrük vergisi (doğrulanacak)';
   }
+  renderPreferentialPanel();
   refreshCalculatedAmounts();
+}
+
+function applyTariffToUi(normalized){
+  if(!normalized){
+    lastTariffData=null;
+    const duty=findDutyRow();
+    if(duty){
+      duty.querySelector('.rate').value='';
+      duty.querySelector('.source').value='ESTIMATE';
+      duty.querySelector('.label').value=currentLanguage==='en'?'Import duty (to be verified)':'İthalat gümrük vergisi (doğrulanacak)';
+    }
+    const candidateEl=document.querySelector('#preferentialCandidateRate');
+    if(candidateEl) candidateEl.value='';
+    renderPreferentialPanel();
+    refreshCalculatedAmounts();
+    return;
+  }
+  applyTariffSelection();
 }
 
 async function loadTariff(){
@@ -736,6 +853,12 @@ async function loadTariff(){
     return null;
   }
 
+  const tariffKey=[hs,partner,reporter].join(':');
+  if(lastTariffKey!==tariffKey){
+    resetPreferentialVerification();
+    lastTariffKey=tariffKey;
+  }
+
   const seq=++tariffRequestSeq;
   hsEl.textContent=hs;
   statusEl.textContent=msg('tariffLoading');
@@ -755,6 +878,7 @@ async function loadTariff(){
     if(seq!==tariffRequestSeq) return null;
     if(!res.ok) throw new Error(data?.message||data?.error||'Tarife sorgusu başarısız');
 
+    lastTariffData=data;
     const normalized=data.normalized||{};
     const rawRate=normalized?.appliedRateDecision?.rate;
     const hasResolvedYear=Number.isFinite(Number(normalized?.resolvedYear));
@@ -768,6 +892,8 @@ async function loadTariff(){
       statusEl.textContent=msg('verifyRequired');
       noteEl.textContent=msg('tariffNoResolvedNote');
       applyTariffToUi(null);
+      lastTariffData=data;
+      renderPreferentialPanel();
       return data;
     }
 
@@ -785,6 +911,7 @@ async function loadTariff(){
       : msg('tariffMfn');
 
     applyTariffToUi(normalized);
+    renderPreferentialPanel();
     return data;
   }catch(error){
     if(seq!==tariffRequestSeq) return null;
@@ -1703,6 +1830,10 @@ updateCostLanguage();
 updateCurrencyLanguage();
 
 document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
+['preferentialEligibility','verifiedPreferentialRate','preferentialSchemeReference'].forEach(id=>{
+  document.querySelector('#'+id)?.addEventListener('input',applyTariffSelection);
+  document.querySelector('#'+id)?.addEventListener('change',applyTariffSelection);
+});
 document.querySelector('#refreshTaxRule').addEventListener('click',loadCountryTaxProfile);
 document.querySelector('#originCountry').addEventListener('change',loadTariff);
 document.querySelector('#exportCountry').addEventListener('change',()=>{});
