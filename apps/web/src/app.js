@@ -336,6 +336,57 @@ const sourceLabelsTr={LIVE:'Canlı veri',OFFICIAL:'Resmî kaynak',QUOTE:'Güncel
 const sourceLabelsEn={LIVE:'Live data',OFFICIAL:'Official source',QUOTE:'Current quote',MARKET_AVG:'Market average',MANUAL:'Manual data',ESTIMATE:'Estimate'};
 const methodLabelsTr={FIXED:'Sevkiyat başına',PER_CONTAINER:'Ekipman başına',PER_MT:'MT başına',PCT_GOODS:'Ürün bedelinin %',PCT_CUSTOMS:'Gümrük kıymetinin %',PCT_IMPORT_TAX:'Gümrük kıymeti + verginin %'};
 const methodLabelsEn={FIXED:'Per shipment',PER_CONTAINER:'Per equipment',PER_MT:'Per MT',PCT_GOODS:'% of goods value',PCT_CUSTOMS:'% of customs value',PCT_IMPORT_TAX:'% of customs value + duty'};
+const INCOTERM_SCOPE={
+  EXW:{modes:['ANY'],included:[]},
+  FCA:{modes:['ANY'],included:['ORIGIN_INLAND','EXPORT_CLEARANCE']},
+  CPT:{modes:['ANY'],included:['ORIGIN_INLAND','EXPORT_CLEARANCE','FREIGHT_INTL']},
+  CIP:{modes:['ANY'],included:['ORIGIN_INLAND','EXPORT_CLEARANCE','FREIGHT_INTL','INSURANCE']},
+  DAP:{modes:['ANY'],included:['ORIGIN_INLAND','EXPORT_CLEARANCE','FREIGHT_INTL','INSURANCE','DESTINATION_CHARGES','DESTINATION_INLAND']},
+  DPU:{modes:['ANY'],included:['ORIGIN_INLAND','EXPORT_CLEARANCE','FREIGHT_INTL','INSURANCE','DESTINATION_CHARGES','DESTINATION_INLAND']},
+  DDP:{modes:['ANY'],included:['ORIGIN_INLAND','EXPORT_CLEARANCE','FREIGHT_INTL','INSURANCE','DESTINATION_CHARGES','IMPORT_DUTY','IMPORT_TAX','CUSTOMS_BROKERAGE','DESTINATION_INLAND']},
+  FAS:{modes:['SEA'],included:['ORIGIN_INLAND','EXPORT_CLEARANCE']},
+  FOB:{modes:['SEA'],included:['ORIGIN_INLAND','EXPORT_CLEARANCE']},
+  CFR:{modes:['SEA'],included:['ORIGIN_INLAND','EXPORT_CLEARANCE','FREIGHT_INTL']},
+  CIF:{modes:['SEA'],included:['ORIGIN_INLAND','EXPORT_CLEARANCE','FREIGHT_INTL','INSURANCE']}
+};
+
+function incotermAnalysis(){
+  const term=document.querySelector('#incoterm').value;
+  const mode=document.querySelector('#transportMode').value;
+  const profile=INCOTERM_SCOPE[term];
+  if(!profile) return {compatible:false,duplicates:[]};
+  const compatible=profile.modes.includes('ANY')||profile.modes.includes(mode);
+  const duplicates=[...document.querySelectorAll('.cost-row')]
+    .filter(row=>profile.included.includes(row.dataset.code))
+    .filter(row=>Number(row.querySelector('.rate').value)>0)
+    .map(row=>row.querySelector('.label').value||row.dataset.code);
+  return {compatible,duplicates,term,mode};
+}
+
+function updateIncotermStatus(){
+  const el=document.querySelector('#incotermStatus');
+  if(!el) return;
+  const a=incotermAnalysis();
+  if(!a.compatible){
+    el.textContent=currentLanguage==='en'
+      ? a.term+' is restricted to sea/inland-waterway use in this model. Select a compatible Incoterm for '+a.mode+'.'
+      : a.term+' bu modelde deniz/iç suyolu kullanımına ayrılmıştır. '+a.mode+' için uyumlu bir Incoterm seçin.';
+    el.className='field-status error';
+    return;
+  }
+  if(a.duplicates.length){
+    el.textContent=currentLanguage==='en'
+      ? 'Potential double count: '+a.duplicates.join(', ')+' may already be included in the supplier '+a.term+' price.'
+      : 'Olası çifte sayım: '+a.duplicates.join(', ')+' tedarikçinin '+a.term+' fiyatına zaten dahil olabilir.';
+    el.className='field-status warning';
+    return;
+  }
+  el.textContent=currentLanguage==='en'
+    ? 'Supplier price is interpreted at the selected '+a.term+' delivery scope. Country customs valuation is verified separately.'
+    : 'Tedarikçi fiyatı seçilen '+a.term+' teslim kapsamına göre yorumlanır. Ülke gümrük kıymeti ayrıca doğrulanır.';
+  el.className='field-status verified';
+}
+
 const sourceLabels=currentLanguage==='en'?sourceLabelsEn:sourceLabelsTr;
 const methodLabels=currentLanguage==='en'?methodLabelsEn:methodLabelsTr;
 const defaults=[
@@ -447,6 +498,7 @@ function syncShipment(){
   document.querySelector('#totalMt').value=shipment().mt.toFixed(2);
   refreshCalculatedAmounts();
   renderQuoteSummary();
+  updateIncotermStatus();
 }
 
 defaults.forEach(addRow);
@@ -1216,6 +1268,19 @@ document.querySelector('#clearCalculationHistory').addEventListener('click',asyn
 
 document.querySelector('#calculate').addEventListener('click',()=>{
   const notice=document.querySelector('#historySnapshotNotice');
+  const incotermCheck=incotermAnalysis();
+  if(!incotermCheck.compatible){
+    alert(currentLanguage==='en'
+      ? 'The selected Incoterm is not compatible with this transport-mode model.'
+      : 'Seçilen Incoterm bu taşıma modu modeliyle uyumlu değil.');
+    return;
+  }
+  if(incotermCheck.duplicates.length){
+    alert(currentLanguage==='en'
+      ? 'Potential Incoterm double count detected: '+incotermCheck.duplicates.join(', ')+'. Remove or zero items already included in the supplier price before calculating.'
+      : 'Olası Incoterm çifte sayımı tespit edildi: '+incotermCheck.duplicates.join(', ')+'. Hesaplamadan önce tedarikçi fiyatına dahil kalemleri kaldırın veya sıfırlayın.');
+    return;
+  }
   if(notice) notice.hidden=true;
   const s=shipment();
   const price=positive('#price');
@@ -1593,6 +1658,7 @@ async function calculateRoute(){
   finally{btn.disabled=false;btn.textContent=currentLanguage==='en'?'Calculate route':'Rotayı hesapla'}
 }
 document.querySelector('#calculateRoute').addEventListener('click',calculateRoute);
+document.querySelector('#incoterm').addEventListener('change',updateIncotermStatus);
 document.querySelector('#transportMode').addEventListener('change',()=>{
   lastRouteData=null;
   document.querySelector('#routeDistance').textContent='—';
@@ -1600,6 +1666,7 @@ document.querySelector('#transportMode').addEventListener('change',()=>{
   document.querySelector('#routeTolls').textContent='—';
   document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Recalculate / verify route':'Rotayı yeniden hesapla / doğrula';
   renderQuoteSummary();
+  updateIncotermStatus();
 });
 document.querySelector('#refreshFreightBenchmark').addEventListener('click',loadFreightBenchmark);
 document.querySelector('#commercialBuffer').addEventListener('input',()=>loadFreightBenchmark());
