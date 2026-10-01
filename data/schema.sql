@@ -56,3 +56,26 @@ CREATE TABLE calculations (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (tenant_id) REFERENCES tenants(id)
 );
+
+
+CREATE TABLE freight_benchmarks (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT,
+  origin_country TEXT,
+  origin_city TEXT,
+  destination_country TEXT,
+  destination_city TEXT,
+  transport_mode TEXT NOT NULL,
+  equipment TEXT,
+  distance_km REAL,
+  amount_per_unit REAL,
+  currency TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  source_name TEXT,
+  source_date TEXT,
+  valid_until TEXT,
+  confidence_pct REAL,
+  metadata_json TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+);

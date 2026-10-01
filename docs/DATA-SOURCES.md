@@ -105,3 +105,16 @@ No placeholder value may be surfaced as LIVE or OFFICIAL.
 - Initial Turkish aliases include L-threonine/treonin, sunflower oil/ayçiçek yağı, and almonds/badem.
 - Ambiguous product aliases may deliberately return multiple HS6 candidates; the user must select the appropriate product presentation before tariff calculation.
 - Official UN HS2022 descriptions remain available in English; localized labels are presentation/search aids only.
+
+
+## Freight Benchmark Engine v1
+- Endpoint: `POST /api/freight-benchmark`
+- Produces a range, not a single unsupported freight price.
+- Evidence hierarchy:
+  - recent forwarder/carrier quotes
+  - market benchmark samples
+  - explicitly supplied per-km benchmark samples
+- Route extras such as tolls and border fees are applied separately.
+- Commercial buffer is applied after the benchmark and route extras.
+- If no evidence exists, the engine returns `NO_BENCHMARK` and does not invent a rate.
+- UI currently feeds same-route/equipment forwarder quotes plus route distance. External IRU/FBX-style benchmark adapters are planned as the next evidence sources.

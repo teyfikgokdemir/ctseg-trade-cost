@@ -40,6 +40,14 @@ const STATIC_TRANSLATIONS={
   'Sürüş süresi':'Driving time',
   'Yol ücretleri':'Tolls',
   'Rota verisi':'Route data',
+  'Navlun benchmark':'Freight benchmark',
+  'Aynı rota ve ekipman için gerçek teklifler ile mevcut benchmark verilerini birleştirir. Veri yoksa fiyat üretmez.':'Combines real quotes and available benchmark data for the same route and equipment. It does not invent a price when no evidence exists.',
+  'Benchmark yenile':'Refresh benchmark',
+  'Beklenen / birim':'Expected / unit',
+  'Beklenen aralık':'Expected range',
+  'Güven':'Confidence',
+  'Kaynaklar':'Sources',
+  'Önce rotayı hesaplayın veya aynı rota için forwarder teklifi kaydedin.':'Calculate the route first or save a forwarder quote for the same route.',
   'Güncel döviz kuru':'Current exchange rate',
   'Kuru yenile':'Refresh rate',
   'Kaynak para birimi':'Base currency',
@@ -541,6 +549,16 @@ function currentQuoteKey(){
     containerType:document.querySelector('#containerType').value
   };
 }
+let lastRouteData=null;
+let freightBenchmarkSeq=0;
+
+function freightSourceLabel(sourceType){
+  const labels=currentLanguage==='en'
+    ? {QUOTE:'Quote',MARKET_AVG:'Market',LIVE:'Live',OFFICIAL:'Official',MANUAL:'Manual',ESTIMATE:'Estimate'}
+    : {QUOTE:'Teklif',MARKET_AVG:'Piyasa',LIVE:'Canlı',OFFICIAL:'Resmî',MANUAL:'Manuel',ESTIMATE:'Tahmin'};
+  return labels[sourceType]||sourceType;
+}
+
 function matchingQuotes(){
   const key=currentQuoteKey();
   const now=todayISO();
@@ -549,6 +567,92 @@ function matchingQuotes(){
     .filter(q=>!q.validUntil||q.validUntil>=now)
     .sort((a,b)=>new Date(b.date)-new Date(a.date));
 }
+
+async function loadFreightBenchmark(){
+  const expectedEl=document.querySelector('#freightExpected');
+  const rangeEl=document.querySelector('#freightRange');
+  const confidenceEl=document.querySelector('#freightConfidence');
+  const sourcesEl=document.querySelector('#freightSources');
+  const noteEl=document.querySelector('#freightBenchmarkNote');
+
+  const matches=matchingQuotes();
+  if(!lastRouteData && !matches.length){
+    expectedEl.textContent='—';
+    rangeEl.textContent='—';
+    confidenceEl.textContent=currentLanguage==='en'?'No benchmark':'Benchmark yok';
+    sourcesEl.textContent='—';
+    noteEl.textContent=currentLanguage==='en'
+      ? 'Calculate the route or save a valid forwarder quote first.'
+      : 'Önce rotayı hesaplayın veya geçerli bir forwarder teklifi kaydedin.';
+    return null;
+  }
+
+  const seq=++freightBenchmarkSeq;
+  confidenceEl.textContent=currentLanguage==='en'?'Calculating…':'Hesaplanıyor…';
+
+  const usdTolls=Number(lastRouteData?.tollTotals?.USD)||0;
+  const quoteSamples=matches.map(q=>({
+    value:Number(q.rate),
+    date:q.date,
+    validUntil:q.validUntil||null,
+    sourceType:'QUOTE',
+    sourceName:q.provider||'Forwarder',
+    currency:'USD'
+  }));
+
+  try{
+    const res=await fetch('/api/freight-benchmark',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        distanceKm:lastRouteData?.distanceKm??null,
+        units:Number(document.querySelector('#containerCount').value)||1,
+        currency:'USD',
+        commercialBufferPct:Number(document.querySelector('#commercialBuffer').value)||0,
+        tollsPerUnit:usdTolls,
+        borderFeesPerUnit:0,
+        quoteSamples,
+        marketSamples:[],
+        perKmBenchmarks:[]
+      })
+    });
+    const data=await res.json();
+    if(seq!==freightBenchmarkSeq) return null;
+    if(!res.ok) throw new Error(data?.message||data?.error||'Benchmark failed');
+
+    const r=data.result;
+    if(r.status!=='BENCHMARK_READY'){
+      expectedEl.textContent='—';
+      rangeEl.textContent='—';
+      confidenceEl.textContent=currentLanguage==='en'?'No benchmark':'Benchmark yok';
+      sourcesEl.textContent='—';
+      noteEl.textContent=currentLanguage==='en'
+        ? 'No quote or market benchmark is available. No freight price was invented.'
+        : 'Teklif veya piyasa benchmark verisi yok. Sistem navlun fiyatı uydurmadı.';
+      return r;
+    }
+
+    expectedEl.textContent='$'+money(r.expectedPerUnit,0)+' / '+(currentLanguage==='en'?'unit':'birim');
+    rangeEl.textContent='$'+money(r.lowPerUnit,0)+' – $'+money(r.highPerUnit,0);
+    confidenceEl.textContent=(currentLanguage==='en'
+      ? {HIGH:'High',MEDIUM:'Medium',LOW:'Low'}[r.confidence]
+      : {HIGH:'Yüksek',MEDIUM:'Orta',LOW:'Düşük'}[r.confidence])+' · '+r.confidencePct+'%';
+    sourcesEl.textContent=(r.sourceMix||[]).map(x=>freightSourceLabel(x.sourceType)+' × '+x.count).join(' + ')||'—';
+    noteEl.textContent=currentLanguage==='en'
+      ? `Benchmark uses ${r.sampleCount} evidence item(s). Route/toll extras and the commercial buffer are applied separately.`
+      : `Benchmark ${r.sampleCount} veri noktasına dayanıyor. Rota/toll ekleri ve ticari koruma payı ayrı uygulanıyor.`;
+    return r;
+  }catch{
+    if(seq!==freightBenchmarkSeq) return null;
+    expectedEl.textContent='—';
+    rangeEl.textContent='—';
+    confidenceEl.textContent=currentLanguage==='en'?'Unavailable':'Alınamadı';
+    sourcesEl.textContent='—';
+    noteEl.textContent=currentLanguage==='en'?'Freight benchmark could not be calculated.':'Navlun benchmark hesaplanamadı.';
+    return null;
+  }
+}
+
 function weightedQuoteAverage(quotes){
   if(!quotes.length) return null;
   const now=Date.now();
@@ -580,6 +684,7 @@ function renderQuoteSummary(){
     saveQuotes(loadQuotes().filter(q=>q.id!==btn.dataset.id));
     renderQuoteSummary();
   }));
+  loadFreightBenchmark();
 }
 document.querySelector('#quoteDate').value=todayISO();
 document.querySelector('#saveQuote').addEventListener('click',()=>{
@@ -877,6 +982,7 @@ async function calculateRoute(){
       }
       throw new Error();
     }
+    lastRouteData=data;
     document.querySelector('#routeDistance').textContent=money(data.distanceKm,0)+' km';
     document.querySelector('#routeDuration').textContent=money(data.durationHours,1)+' saat';
     const tollEntries=Object.entries(data.tollTotals||{});
@@ -884,10 +990,13 @@ async function calculateRoute(){
       ? tollEntries.map(([c,v])=>money(v,2)+' '+c).join(' + ')
       : (data.tollDataAvailable ? (currentLanguage==='en'?'No toll / no data':'Yol ücreti yok / veri yok') : (currentLanguage==='en'?'Unavailable from free source':'Ücretsiz kaynakta yok'));
     document.querySelector('#routeStatus').textContent=currentLanguage==='en'?(data.truckProfileApplied?'Verified truck route':'Free route estimate'):(data.truckProfileApplied?'Doğrulanmış kamyon rotası':'Ücretsiz rota tahmini');
+    loadFreightBenchmark();
   }catch{document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Route unavailable':'Rota alınamadı'}
   finally{btn.disabled=false;btn.textContent=currentLanguage==='en'?'Calculate route':'Rotayı hesapla'}
 }
 document.querySelector('#calculateRoute').addEventListener('click',calculateRoute);
+document.querySelector('#refreshFreightBenchmark').addEventListener('click',loadFreightBenchmark);
+document.querySelector('#commercialBuffer').addEventListener('input',()=>loadFreightBenchmark());
 
 
 function buildPrintReport(){
