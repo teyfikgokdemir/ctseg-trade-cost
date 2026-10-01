@@ -52,3 +52,6 @@ export function createPlaceholderProvider(id, name, capabilities = []) {
     }
   };
 }
+
+
+export { createWtoTariffProvider, fetchWtoIndicators, fetchWtoTimeseries } from "./wto.js";
