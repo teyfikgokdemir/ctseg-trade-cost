@@ -35,6 +35,11 @@ test('applies normalized official tariff to resolved customs base', () => {
       { code: 'FREIGHT_INTL', label: 'Freight', amount: 100, sourceType: SourceType.QUOTE },
       { code: 'INSURANCE', label: 'Insurance', calc: 'pct_goods', rate: 1, sourceType: SourceType.QUOTE }
     ],
+    customsValuation: {
+      value: 1110,
+      status: 'VERIFIED',
+      requiresVerification: false
+    },
     tariff: {
       sourceName: 'World Trade Organization',
       classification: { hs: '292250' },
@@ -102,6 +107,11 @@ test('calculates Türkiye import VAT on customs value plus duty', async () => {
       { code: 'FREIGHT_INTL', label: 'Freight', amount: 100, sourceType: SourceType.QUOTE },
       { code: 'INSURANCE', label: 'Insurance', amount: 10, sourceType: SourceType.QUOTE }
     ],
+    customsValuation: {
+      value: 1110,
+      status: 'VERIFIED',
+      requiresVerification: false
+    },
     tariff: {
       sourceName: 'World Trade Organization',
       classification: { hs: '292250' },
@@ -275,4 +285,61 @@ test('Incoterm customs valuation remains country-rule dependent', async () => {
   const scope = getIncotermCostScope("DDP");
   assert.equal(scope.customsValuationPolicy, "COUNTRY_RULE_REQUIRED");
   assert.ok(scope.sellerIncludedCostCodes.includes("IMPORT_DUTY"));
+});
+
+
+test('tariff duty refuses to calculate without verified customs valuation', () => {
+  assert.throws(() => calculateLandedCost({
+    product: { quantity: 1, unit: 'mt' },
+    purchase: { price: 1000, priceUnit: 'usd/mt', sourceType: SourceType.QUOTE },
+    tariff: {
+      normalized: { appliedRateDecision: { rate: 5, basis: 'MFN' } }
+    }
+  }), /Verified customs valuation is required/);
+});
+
+test('global customs valuation calculates explicit additions and deductions', async () => {
+  const {
+    calculateCustomsValue,
+    CustomsValuationStatus,
+    CustomsAdjustmentType
+  } = await import("../src/customs-valuation.js");
+
+  const r = calculateCustomsValue({
+    transactionValue: 1000,
+    status: CustomsValuationStatus.VERIFIED,
+    country: 'DE',
+    adjustments: [
+      { type: CustomsAdjustmentType.FREIGHT_TO_BORDER, amount: 100, verified: true },
+      { type: CustomsAdjustmentType.INSURANCE_TO_BORDER, amount: 10, verified: true },
+      { type: CustomsAdjustmentType.ASSISTS, amount: 50, verified: true },
+      { type: CustomsAdjustmentType.POST_IMPORT_TRANSPORT, amount: 20, verified: true }
+    ]
+  });
+
+  assert.equal(r.additions, 160);
+  assert.equal(r.deductions, 20);
+  assert.equal(r.value, 1140);
+  assert.equal(r.requiresVerification, false);
+  assert.equal(r.policy, 'COUNTRY_SPECIFIC_RULE_REQUIRED');
+});
+
+test('customs valuation stays unresolved when a non-zero adjustment is unverified', async () => {
+  const {
+    calculateCustomsValue,
+    CustomsValuationStatus,
+    CustomsAdjustmentType
+  } = await import("../src/customs-valuation.js");
+
+  const r = calculateCustomsValue({
+    transactionValue: 1000,
+    status: CustomsValuationStatus.VERIFIED,
+    adjustments: [
+      { type: CustomsAdjustmentType.ROYALTIES_LICENSE_FEES, amount: 25, verified: false }
+    ]
+  });
+
+  assert.equal(r.value, 1025);
+  assert.equal(r.requiresVerification, true);
+  assert.deepEqual(r.unresolvedAdjustments, ['ROYALTIES_LICENSE_FEES']);
 });
