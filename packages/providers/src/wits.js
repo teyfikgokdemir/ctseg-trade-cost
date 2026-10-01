@@ -29,7 +29,8 @@ export function parseWitsProducts(xml) {
     const code = attr(attrs, ["productcode", "code"]) ||
       inner.match(/<(?:\w+:)?productcode>([^<]+)<\/(?:\w+:)?productcode>/i)?.[1] || null;
     const description = attr(attrs, ["description", "productdescription"]) ||
-      inner.match(/<(?:\w+:)?description>([^<]+)<\/(?:\w+:)?description>/i)?.[1] ||
+      inner.match(/<(?:\w+:)?productdescription>([\s\S]*?)<\/(?:\w+:)?productdescription>/i)?.[1] ||
+      inner.match(/<(?:\w+:)?description>([\s\S]*?)<\/(?:\w+:)?description>/i)?.[1] ||
       inner.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
     if (!code) continue;
@@ -38,8 +39,9 @@ export function parseWitsProducts(xml) {
       hsCode: String(code).trim(),
       description: decodeXml(description).trim(),
       isGroup: attr(attrs, ["isgroup", "isproductgroup"]),
+      nomenclatureCode: attr(attrs, ["nomenclaturecode"]),
       groupType: attr(attrs, ["grouptype", "productgrouptype"]),
-      notes: attr(attrs, ["notes"])
+      notes: inner.match(/<(?:\w+:)?notes>([\s\S]*?)<\/(?:\w+:)?notes>/i)?.[1]?.trim() || null
     });
   }
 
