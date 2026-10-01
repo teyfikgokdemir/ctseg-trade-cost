@@ -119,6 +119,6 @@ test('calculates Türkiye import VAT on customs value plus duty', async () => {
   const vat = r.costs.find(x => x.code === 'TR_IMPORT_VAT');
 
   assert.equal(duty.amount, 72.15);
-  assert.equal(vat.amount, 236.43);
-  assert.equal(r.total, 1418.58);
+  assert.ok(Math.abs(vat.amount - 236.43) < 0.000001);
+  assert.ok(Math.abs(r.total - 1418.58) < 0.000001);
 });
