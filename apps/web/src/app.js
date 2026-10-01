@@ -469,7 +469,7 @@ function applyTariffToUi(normalized){
     duty.querySelector('.source').value='OFFICIAL';
     duty.querySelector('.label').value=currentLanguage==='en'?'Import duty':'İthalat gümrük vergisi';
   }else{
-    duty.querySelector('.rate').value='0';
+    duty.querySelector('.rate').value='';
     duty.querySelector('.source').value='ESTIMATE';
     duty.querySelector('.label').value=currentLanguage==='en'?'Import duty (to be verified)':'İthalat gümrük vergisi (doğrulanacak)';
   }
@@ -492,6 +492,7 @@ async function loadTariff(){
     yearEl.textContent='—';
     statusEl.textContent=msg('tariffMissing');
     noteEl.textContent=msg('tariffMissingNote');
+    applyTariffToUi(null);
     return null;
   }
 
@@ -1050,6 +1051,19 @@ document.querySelector('#calculate').addEventListener('click',()=>{
   if(!s.count||!s.payload||!price){alert(currentLanguage==='en'?'Check container count, net payload and purchase price.':'Konteyner sayısı, net yük ve alış fiyatını kontrol edin.');return}
   const goods=goodsTotal();
   const costRows=[...document.querySelectorAll('.cost-row')];
+  const dutyRow=findDutyRow();
+  if(dutyRow && /doğrulanacak|to be verified/i.test(dutyRow.querySelector('.label').value)){
+    const dutyRateRaw=dutyRow.querySelector('.rate').value.trim();
+    const dutySource=dutyRow.querySelector('.source').value;
+    const manuallyVerified=dutyRateRaw!=='' && dutySource==='MANUAL';
+    if(!manuallyVerified){
+      alert(currentLanguage==='en'
+        ? 'Import duty is unresolved. Retrieve an official tariff or enter the verified rate manually and set the source to Manual data before calculating.'
+        : 'İthalat gümrük vergisi doğrulanmadı. Hesaplamadan önce resmî tarifeyi alın veya doğruladığınız oranı manuel girip kaynağı Manuel veri olarak seçin.');
+      dutyRow.querySelector('.rate').focus();
+      return;
+    }
+  }
   const costs=costRows.map(row=>({amount:calculateRow(row),source:row.querySelector('.source').value}));
   const extra=costs.reduce((sum,c)=>sum+c.amount,0);
   const total=goods+extra;
