@@ -83,6 +83,7 @@ const STATIC_TRANSLATIONS={
   'Sabit tutar':'Fixed amount',
   'Doğrulanmış oran / tutar':'Verified rate / amount',
   'Resmî karar / dava / belge referansı':'Official decision / case / document reference',
+  'Resmî kaynakları kontrol et':'Check official sources',
   'Doğrulanmış önlemi ekle':'Add verified measure',
   'HS, menşe ve ithalat ülkesi değişirse mevcut remedy satırları yeniden doğrulanmalıdır.':'Existing remedy rows must be re-verified if HS, origin or import country changes.',
   'İthalat vergileri':'Import taxes',
@@ -607,6 +608,76 @@ function refreshTradeRemedyValidity(){
       : (currentLanguage==='en'
         ? 'Existing remedy rows must be re-verified if HS, origin or import country changes.'
         : 'HS, menşe ve ithalat ülkesi değişirse mevcut remedy satırları yeniden doğrulanmalıdır.');
+  }
+}
+
+async function checkTradeRemedySources(){
+  const hs=document.querySelector('#hsCode')?.value.trim()||'';
+  const origin=selectedCountryIso2('#originCountry');
+  const destination=selectedCountryIso2('#importCountry');
+  const type=document.querySelector('#tradeRemedyType')?.value||'';
+  const list=document.querySelector('#tradeRemedySources');
+  const note=document.querySelector('#tradeRemedyNote');
+
+  if(!/^\d{6}$/.test(hs)||!origin||!destination){
+    alert(currentLanguage==='en'
+      ? 'Select a valid HS6, country of origin and import country first.'
+      : 'Önce geçerli HS6, menşe ülke ve ithalat ülkesini seçin.');
+    return;
+  }
+
+  list.innerHTML=currentLanguage==='en'
+    ? '<div class="remedy-source-card">Checking official sources…</div>'
+    : '<div class="remedy-source-card">Resmî kaynaklar kontrol ediliyor…</div>';
+
+  try{
+    const params=new URLSearchParams({
+      action:'lookup',
+      hs,
+      origin,
+      import:destination,
+      type
+    });
+    const res=await fetch('/api/trade-remedies?'+params.toString(),{cache:'no-store'});
+    const data=await res.json();
+    if(!res.ok) throw new Error(data?.message||data?.error||'Trade-remedy source lookup failed');
+
+    const providers=Array.isArray(data.providers)?data.providers:[];
+    if(!providers.length){
+      list.innerHTML='<div class="remedy-source-card muted">'+(currentLanguage==='en'
+        ? 'No connected official provider for this destination. Manual verification is required.'
+        : 'Bu hedef ülke için bağlı resmî provider yok. Manuel doğrulama gerekli.')+'</div>';
+      if(note) note.textContent=currentLanguage==='en'
+        ? 'No automated official discovery source is connected for this route.'
+        : 'Bu rota için otomatik resmî discovery kaynağı bağlı değil.';
+      return;
+    }
+
+    list.innerHTML=providers.map(provider=>{
+      const mode=provider.mode==='EXECUTION_REFERENCE'
+        ? (currentLanguage==='en'?'Execution reference':'Uygulama referansı')
+        : (currentLanguage==='en'?'Official discovery':'Resmî tarama');
+      const types=(provider.types||[]).join(', ');
+      const notes=(provider.notes||[]).map(n=>'<li>'+n+'</li>').join('');
+      return `<div class="remedy-source-card">
+        <div class="remedy-source-top">
+          <strong>${provider.name}</strong>
+          <span>${mode}</span>
+        </div>
+        <small>${provider.authority||''}</small>
+        <p>${currentLanguage==='en'?'Coverage':'Kapsam'}: ${types}</p>
+        ${notes?'<ul>'+notes+'</ul>':''}
+        <a href="${provider.sourceUrl}" target="_blank" rel="noopener noreferrer">${currentLanguage==='en'?'Open official source':'Resmî kaynağı aç'}</a>
+      </div>`;
+    }).join('');
+
+    if(note) note.textContent=currentLanguage==='en'
+      ? 'Official source availability found. Provider evidence is discovery only; verify scope, exporter, legal reference and executable rate before adding a remedy.'
+      : 'Resmî kaynak bulundu. Provider verisi yalnız discovery amaçlıdır; remedy eklemeden önce kapsam, ihracatçı, hukuki referans ve uygulanabilir oranı doğrulayın.';
+  }catch{
+    list.innerHTML='<div class="remedy-source-card warning">'+(currentLanguage==='en'
+      ? 'Official-source lookup failed. Keep the remedy in manual verification mode.'
+      : 'Resmî kaynak kontrolü başarısız. Remedy satırını manuel doğrulama modunda tutun.')+'</div>';
   }
 }
 
@@ -2087,6 +2158,7 @@ document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
 document.querySelector('#refreshTaxRule').addEventListener('click',loadCountryTaxProfile);
 document.querySelector('#applyVerifiedImportTax')?.addEventListener('click',applyVerifiedImportTaxRate);
 document.querySelector('#addAdditionalImportTax')?.addEventListener('click',addSelectedImportTax);
+document.querySelector('#checkTradeRemedySources')?.addEventListener('click',checkTradeRemedySources);
 document.querySelector('#addTradeRemedy')?.addEventListener('click',addVerifiedTradeRemedy);
 document.querySelector('#originCountry').addEventListener('change',()=>{loadTariff();refreshTradeRemedyValidity();});
 document.querySelector('#exportCountry').addEventListener('change',()=>{});
