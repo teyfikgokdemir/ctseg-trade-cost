@@ -71,14 +71,27 @@ const STATIC_TRANSLATIONS={
   'Doğrulanmış preferential oran (%)':'Verified preferential rate (%)',
   'Scheme / belge referansı':'Scheme / evidence reference',
   'Uygunluk doğrulanana kadar MFN güvenli varsayılan olarak kalır.':'MFN remains the safe default until preferential eligibility is verified.',
-  'Ülke vergi kuralı':'Country tax rule',
-  'Hedef ülke için otomatik vergi modeli mevcutsa gösterilir. Oran doğrulanmadan sistem vergi uydurmaz.':'Shows whether an automated tax model exists for the destination country. The system never invents a tax rate before verification.',
-  'Vergi kuralını yenile':'Refresh tax rule',
+  'İthalat vergileri':'Import taxes',
+  'Hedef ülkeye göre vergi desteğini gösterir. Sistem doğrulanmamış vergi oranını otomatik kullanmaz.':'Shows tax support for the destination country. The system never applies an unverified tax rate automatically.',
+  'Vergi bilgisini yenile':'Refresh tax information',
   'Ülke':'Country',
-  'Kural paketi':'Rule pack',
-  'Vergi modeli':'Tax model',
-  'Oran politikası':'Rate policy',
-  'İthalat ülkesi seçildiğinde kontrol edilir.':'Checked when the import country is selected.',
+  'Vergi desteği':'Tax support',
+  'Vergi kapsamı':'Tax coverage',
+  'Oran durumu':'Rate status',
+  'Doğrulanmış ithalat KDV / GST oranı (%)':'Verified import VAT / GST rate (%)',
+  'Vergi kaynağı':'Tax source',
+  'Vergi türü':'Tax type',
+  'Resmî kaynak':'Official source',
+  'Canlı veri':'Live data',
+  'Manuel doğrulama':'Manual verification',
+  'KDV / GST':'VAT / GST',
+  'ÖTV / Excise':'Excise',
+  'Ek vergi / Surcharge':'Surcharge / additional tax',
+  'Gümrük işlem ücreti':'Customs processing fee',
+  'Diğer ithalat vergisi':'Other import tax',
+  'KDV / GST oranını uygula':'Apply VAT / GST rate',
+  'Ek ithalat vergisi ekle':'Add import tax',
+  'İthalat ülkesi seçildiğinde vergi desteği kontrol edilir.':'Tax support is checked when the import country is selected.',
   'Rota ve taşıma doğrulama':'Route and transport verification',
   'Gerçek rota sağlayıcısı bağlandığında mesafe, sürüş süresi ve mevcut yol ücretleri burada doğrulanır.':'Distance, driving time and available tolls are verified here when a live route provider is connected.',
   'Rotayı hesapla':'Calculate route',
@@ -537,6 +550,61 @@ function findImportTaxRow(){
   return [...document.querySelectorAll('.cost-row')]
     .find(r=>/ithalat kdv|import vat|local tax|yerel vergi/i.test(r.querySelector('.label').value));
 }
+
+const ADDITIONAL_TAX_DEFAULTS={
+  VAT_GST:{tr:'İthalat KDV / GST (doğrulanacak)',en:'Import VAT / GST (to be verified)',method:'PCT_IMPORT_TAX',code:'IMPORT_TAX'},
+  EXCISE:{tr:'ÖTV / Excise (doğrulanacak)',en:'Excise tax (to be verified)',method:'PER_MT',code:'TAX_EXCISE'},
+  SURCHARGE:{tr:'Ek ithalat vergisi / Surcharge (doğrulanacak)',en:'Import surcharge (to be verified)',method:'PCT_CUSTOMS',code:'TAX_SURCHARGE'},
+  IMPORT_LEVY:{tr:'Import levy (doğrulanacak)',en:'Import levy (to be verified)',method:'PCT_CUSTOMS',code:'TAX_IMPORT_LEVY'},
+  CUSTOMS_PROCESSING_FEE:{tr:'Gümrük işlem ücreti (doğrulanacak)',en:'Customs processing fee (to be verified)',method:'FIXED',code:'TAX_PROCESSING_FEE'},
+  OTHER_IMPORT_TAX:{tr:'Diğer ithalat vergisi (doğrulanacak)',en:'Other import tax (to be verified)',method:'FIXED',code:'TAX_OTHER'}
+};
+
+function applyVerifiedImportTaxRate(){
+  const rateEl=document.querySelector('#verifiedImportTaxRate');
+  const sourceEl=document.querySelector('#verifiedImportTaxSource');
+  const rateRaw=rateEl?.value?.trim()||'';
+  const rate=rateRaw===''?null:Number(rateRaw);
+  if(rate===null||!Number.isFinite(rate)||rate<0){
+    alert(currentLanguage==='en'?'Enter a verified non-negative VAT/GST rate.':'Doğrulanmış, sıfır veya pozitif bir KDV/GST oranı girin.');
+    rateEl?.focus();
+    return;
+  }
+
+  let row=findImportTaxRow();
+  if(!row){
+    addRow([
+      currentLanguage==='en'?'Import VAT / GST':'İthalat KDV / GST',
+      'PCT_IMPORT_TAX',
+      rate,
+      sourceEl?.value||'MANUAL',
+      'IMPORT_TAX'
+    ]);
+    row=findImportTaxRow();
+  }
+
+  if(row){
+    row.dataset.code='IMPORT_TAX';
+    row.querySelector('.label').value=currentLanguage==='en'?'Import VAT / GST':'İthalat KDV / GST';
+    row.querySelector('.method').value='PCT_IMPORT_TAX';
+    row.querySelector('.rate').value=String(rate);
+    row.querySelector('.source').value=sourceEl?.value||'MANUAL';
+    refreshCalculatedAmounts();
+  }
+}
+
+function addSelectedImportTax(){
+  const type=document.querySelector('#additionalTaxType')?.value||'OTHER_IMPORT_TAX';
+  if(type==='VAT_GST'){
+    applyVerifiedImportTaxRate();
+    return;
+  }
+  const def=ADDITIONAL_TAX_DEFAULTS[type]||ADDITIONAL_TAX_DEFAULTS.OTHER_IMPORT_TAX;
+  addRow([currentLanguage==='en'?def.en:def.tr,def.method,'','ESTIMATE',def.code]);
+  const rows=[...document.querySelectorAll('.cost-row')];
+  rows[rows.length-1]?.querySelector('.rate')?.focus();
+}
+
 function addRow([label='',method='FIXED',rate=0,source='ESTIMATE',code='OTHER']={}){
   const div=document.createElement('div');
   div.className='cost-row';
@@ -678,19 +746,21 @@ async function loadCountryTaxProfile(){
     const profile=data.profile||{};
     const configured=profile.status==='COUNTRY_SPECIFIC';
     statusEl.textContent=configured
-      ? msg('taxRuleConfigured')
-      : (currentLanguage==='en'?'Global engine · verification required':'Global motor · doğrulama gerekli');
-    modelEl.textContent=profile.taxModel||'—';
+      ? (currentLanguage==='en'?'Country-specific support available':'Ülkeye özel destek mevcut')
+      : (currentLanguage==='en'?'Manual verification required':'Manuel doğrulama gerekli');
+    modelEl.textContent=configured
+      ? (currentLanguage==='en'?'Import VAT/GST model':'İthalat KDV/GST modeli')
+      : (currentLanguage==='en'?'VAT/GST + additional import taxes':'KDV/GST + ek ithalat vergileri');
     ratePolicyEl.textContent=profile.ratePolicy==='PRODUCT_RATE_MUST_BE_VERIFIED'
-      ? msg('taxRuleProductVerify')
-      : msg('taxRuleVerifiedOnly');
+      ? (currentLanguage==='en'?'Verify by product / HS':'Ürün / HS bazında doğrula')
+      : (currentLanguage==='en'?'Enter verified rate':'Doğrulanmış oran gir');
     noteEl.textContent=configured
       ? (currentLanguage==='en'
-        ? 'A country calculation model exists, but the product-specific rate and transaction treatment still require verification.'
-        : 'Ülke hesaplama modeli mevcut; ancak ürün bazlı oran ve işlem türü yine doğrulanmalıdır.')
+        ? 'A country-specific calculation structure is available. Verify the product-specific rate and transaction treatment before final calculation.'
+        : 'Ülkeye özel hesaplama yapısı mevcut. Final hesap öncesi ürün bazlı oranı ve işlem türünü doğrulayın.')
       : (currentLanguage==='en'
-        ? 'No automated country-specific rule pack is configured. Enter only a verified destination-country tax rate manually.'
-        : 'Bu ülke için otomatik kural paketi henüz yok. Yalnızca doğrulanmış hedef ülke vergi oranını manuel girin.');
+        ? 'No country-specific automatic tax source is connected yet. Enter only verified destination-country tax rates.'
+        : 'Bu ülke için ülkeye özel otomatik vergi kaynağı henüz bağlı değil. Yalnızca doğrulanmış hedef ülke vergi oranlarını girin.');
     return profile;
   }catch{
     if(seq!==taxRuleRequestSeq) return null;
@@ -1543,6 +1613,25 @@ document.querySelector('#calculate').addEventListener('click',()=>{
       return;
     }
   }
+  const unresolvedAdditionalTax=costRows.find(row=>
+    /^TAX_/.test(row.dataset.code||'') &&
+    /doğrulanacak|to be verified/i.test(row.querySelector('.label').value)
+  );
+  if(unresolvedAdditionalTax){
+    const rateRaw=unresolvedAdditionalTax.querySelector('.rate').value.trim();
+    const source=unresolvedAdditionalTax.querySelector('.source').value;
+    const verified=rateRaw!=='' && ['MANUAL','OFFICIAL','LIVE'].includes(source);
+    if(!verified){
+      alert(currentLanguage==='en'
+        ? 'An additional import tax is still unresolved. Enter the verified value and source, or remove the row before calculating.'
+        : 'Ek ithalat vergilerinden biri hâlâ doğrulanmadı. Hesaplamadan önce doğrulanmış değeri ve kaynağı girin veya satırı kaldırın.');
+      unresolvedAdditionalTax.querySelector('.rate').focus();
+      return;
+    }
+    unresolvedAdditionalTax.querySelector('.label').value=unresolvedAdditionalTax.querySelector('.label').value
+      .replace(/\s*\((?:doğrulanacak|to be verified)\)\s*/i,'');
+  }
+
   const costs=costRows.map(row=>({amount:calculateRow(row),source:row.querySelector('.source').value}));
   const extra=costs.reduce((sum,c)=>sum+c.amount,0);
   const total=goods+extra;
@@ -1842,6 +1931,8 @@ document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
   document.querySelector('#'+id)?.addEventListener('change',applyTariffSelection);
 });
 document.querySelector('#refreshTaxRule').addEventListener('click',loadCountryTaxProfile);
+document.querySelector('#applyVerifiedImportTax')?.addEventListener('click',applyVerifiedImportTaxRate);
+document.querySelector('#addAdditionalImportTax')?.addEventListener('click',addSelectedImportTax);
 document.querySelector('#originCountry').addEventListener('change',loadTariff);
 document.querySelector('#exportCountry').addEventListener('change',()=>{});
 document.querySelector('#importCountry').addEventListener('change',()=>{
