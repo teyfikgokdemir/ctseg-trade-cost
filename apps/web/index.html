@@ -35,10 +35,19 @@
           <div id="hsSuggestions" class="hs-suggestions" hidden></div>
           <small id="hsStatus" class="field-status">HS 2022 global sınıflandırma</small>
         </label>
-        <label>Menşe ülke<input id="originCountry" value="Türkiye" /></label>
+        <label>Menşe ülke
+          <select id="originCountry">
+            <option value="">Ülkeler yükleniyor…</option>
+          </select>
+        </label>
 
         <label>Çıkış noktası<input id="origin" value="Edirne, Türkiye" /></label>
         <label>Teslim noktası<input id="destination" value="Herat, Afganistan" /></label>
+        <label>İthalat ülkesi
+          <select id="importCountry">
+            <option value="">Ülkeler yükleniyor…</option>
+          </select>
+        </label>
         <label>Incoterm
           <select id="incoterm">
             <option>EXW</option><option>FCA</option><option>FOB</option>
@@ -65,6 +74,23 @@
           </select>
         </label>
       </div>
+    </section>
+
+    <section class="panel tariff-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Gümrük ve tarife doğrulama</h2>
+          <p class="section-help">HS6, menşe ve ithalat ülkesine göre WTO resmi tarife verisi otomatik sorgulanır.</p>
+        </div>
+        <button id="refreshTariff" type="button">Tarifeyi yenile</button>
+      </div>
+      <div class="route-stats">
+        <div><span>HS6</span><strong id="tariffHs">—</strong></div>
+        <div><span>MFN oranı</span><strong id="tariffRate">—</strong></div>
+        <div><span>Kaynak yılı</span><strong id="tariffYear">—</strong></div>
+        <div><span>Durum</span><strong id="tariffStatus">Bekliyor</strong></div>
+      </div>
+      <p id="tariffNote" class="section-help">HS kodu ve ülkeler seçildiğinde otomatik sorgulanır.</p>
     </section>
 
     <section class="panel route-panel">

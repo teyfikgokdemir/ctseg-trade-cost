@@ -8,7 +8,7 @@ const defaults=[
   ['Uluslararası navlun','PER_CONTAINER',5600,'MARKET_AVG'],
   ['Yük sigortası','PCT_GOODS',0.35,'QUOTE'],
   ['Varış / sınır masrafları','PER_CONTAINER',1200,'ESTIMATE'],
-  ['İthalat gümrük vergisi','PCT_CUSTOMS',5,'OFFICIAL'],
+  ['İthalat gümrük vergisi (doğrulanacak)','PCT_CUSTOMS',0,'ESTIMATE'],
   ['Gümrük müşavirliği','FIXED',1300,'MARKET_AVG'],
   ['Varış iç nakliye','PER_CONTAINER',1600,'ESTIMATE']
 ];
@@ -89,6 +89,143 @@ document.querySelector('#addCost').addEventListener('click',()=>addRow());
 ['containerCount','payloadPerContainer','price','priceUnit'].forEach(id=>document.querySelector('#'+id).addEventListener('input',syncShipment));
 ['origin','destination','containerType'].forEach(id=>document.querySelector('#'+id).addEventListener('input',renderQuoteSummary));
 syncShipment();
+
+
+let countryReference=[];
+let tariffRequestSeq=0;
+
+async function loadCountries(){
+  const originSelect=document.querySelector('#originCountry');
+  const importSelect=document.querySelector('#importCountry');
+
+  try{
+    const res=await fetch('/api/countries',{cache:'no-store'});
+    const data=await res.json();
+    if(!res.ok) throw new Error(data?.message||data?.error||'Ülke listesi alınamadı');
+
+    countryReference=Array.isArray(data.countries)?data.countries:[];
+
+    const fill=(select,preferredCode)=>{
+      select.replaceChildren();
+      const placeholder=document.createElement('option');
+      placeholder.value='';
+      placeholder.textContent='Ülke seçin';
+      select.appendChild(placeholder);
+
+      for(const country of countryReference){
+        const option=document.createElement('option');
+        option.value=country.code;
+        option.textContent=country.name+(country.iso2?` (${country.iso2})`:'');
+        option.dataset.iso2=country.iso2||'';
+        option.dataset.iso3=country.iso3||'';
+        select.appendChild(option);
+      }
+
+      if(preferredCode && countryReference.some(c=>c.code===preferredCode)){
+        select.value=preferredCode;
+      }
+    };
+
+    fill(originSelect,'792');
+    fill(importSelect,'004');
+  }catch{
+    originSelect.innerHTML='<option value="">Ülke listesi alınamadı</option>';
+    importSelect.innerHTML='<option value="">Ülke listesi alınamadı</option>';
+  }
+}
+
+function selectedCountryName(selector){
+  const el=document.querySelector(selector);
+  return el.selectedOptions[0]?.textContent?.replace(/\s*\([A-Z]{2}\)\s*$/,'')||'—';
+}
+
+function findDutyRow(){
+  return [...document.querySelectorAll('.cost-row')]
+    .find(r=>/ithalat gümrük vergisi|import duty/i.test(r.querySelector('.label').value));
+}
+
+function applyTariffToUi(normalized){
+  const duty=findDutyRow();
+  if(!duty) return;
+
+  const rate=Number(normalized?.appliedRateDecision?.rate);
+  if(Number.isFinite(rate)){
+    duty.querySelector('.rate').value=String(rate);
+    duty.querySelector('.source').value='OFFICIAL';
+    duty.querySelector('.label').value='İthalat gümrük vergisi';
+  }else{
+    duty.querySelector('.rate').value='0';
+    duty.querySelector('.source').value='ESTIMATE';
+    duty.querySelector('.label').value='İthalat gümrük vergisi (doğrulanacak)';
+  }
+  refreshCalculatedAmounts();
+}
+
+async function loadTariff(){
+  const hs=document.querySelector('#hsCode').value.trim();
+  const reporter=document.querySelector('#importCountry').value;
+  const partner=document.querySelector('#originCountry').value;
+  const rateEl=document.querySelector('#tariffRate');
+  const yearEl=document.querySelector('#tariffYear');
+  const statusEl=document.querySelector('#tariffStatus');
+  const noteEl=document.querySelector('#tariffNote');
+  const hsEl=document.querySelector('#tariffHs');
+
+  if(!/^\d{6}$/.test(hs)||!reporter||!partner){
+    hsEl.textContent=hs||'—';
+    rateEl.textContent='—';
+    yearEl.textContent='—';
+    statusEl.textContent='Eksik seçim';
+    noteEl.textContent='6 haneli HS kodu, menşe ve ithalat ülkesi gerekli.';
+    return null;
+  }
+
+  const seq=++tariffRequestSeq;
+  hsEl.textContent=hs;
+  statusEl.textContent='Sorgulanıyor…';
+  rateEl.textContent='—';
+  yearEl.textContent='—';
+
+  try{
+    const params=new URLSearchParams({
+      action:'lookup',
+      hs,
+      reporter,
+      partner,
+      year:String(new Date().getFullYear())
+    });
+    const res=await fetch('/api/tariff?'+params.toString(),{cache:'no-store'});
+    const data=await res.json();
+    if(seq!==tariffRequestSeq) return null;
+    if(!res.ok) throw new Error(data?.message||data?.error||'Tarife sorgusu başarısız');
+
+    const normalized=data.normalized||{};
+    const rate=Number(normalized?.appliedRateDecision?.rate);
+    rateEl.textContent=Number.isFinite(rate)?'%'+money(rate,2):'Veri yok';
+    yearEl.textContent=normalized.resolvedYear||'—';
+    statusEl.textContent=normalized.confidence==='HIGH'
+      ?'Yüksek güven'
+      :normalized.confidence==='MEDIUM'
+        ?'Orta güven'
+        :'Doğrulama gerekli';
+
+    const pref=normalized.preferentialCandidate;
+    noteEl.textContent=pref
+      ? `MFN güvenli varsayılan olarak uygulandı. %${money(pref.rate,2)} preferential aday var ancak uygunluk doğrulanmadı.`
+      : 'WTO MFN oranı otomatik uygulandı. Nihai beyan öncesi ulusal tarife satırı doğrulanmalıdır.';
+
+    applyTariffToUi(normalized);
+    return data;
+  }catch(error){
+    if(seq!==tariffRequestSeq) return null;
+    rateEl.textContent='—';
+    yearEl.textContent='—';
+    statusEl.textContent='Veri alınamadı';
+    noteEl.textContent='WTO tarife verisi alınamadı; manuel doğrulama gerekli.';
+    applyTariffToUi(null);
+    return null;
+  }
+}
 
 function loadQuotes(){
   try{return JSON.parse(localStorage.getItem(quoteStoreKey)||'[]')}catch{return []}
@@ -340,6 +477,7 @@ async function validateHsCode(code){
     const data=await res.json();
     if(!res.ok||!data.match) throw new Error();
     setHsStatus(`${data.match.hsCode} doğrulandı · ${data.hsRevision||'HS2022'}`,'verified');
+    loadTariff();
     return data.match;
   }catch{
     setHsStatus('HS kodu doğrulanamadı','error');
@@ -395,6 +533,9 @@ async function loadFx(){
   }catch{rateEl.textContent='Kur verisi alınamadı';metaEl.textContent='API bağlantısı henüz aktif değil veya deploy tamamlanmadı.'}
   finally{button.disabled=false;button.textContent='Kuru yenile'}
 }
+document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
+['originCountry','importCountry'].forEach(id=>document.querySelector('#'+id).addEventListener('change',loadTariff));
+
 document.querySelector('#refreshFx').addEventListener('click',loadFx);
 ['fxBase','fxQuote'].forEach(id=>document.querySelector('#'+id).addEventListener('change',loadFx));
 loadFx();
@@ -440,7 +581,7 @@ function buildPrintReport(){
   document.querySelector('#printDate').textContent=new Intl.DateTimeFormat('tr-TR',{dateStyle:'long',timeStyle:'short'}).format(new Date());
   document.querySelector('#printProduct').textContent=document.querySelector('#productName').value||'—';
   document.querySelector('#printHs').textContent=document.querySelector('#hsCode').value||'—';
-  document.querySelector('#printOriginCountry').textContent=document.querySelector('#originCountry').value||'—';
+  document.querySelector('#printOriginCountry').textContent=selectedCountryName('#originCountry');
   document.querySelector('#printIncoterm').textContent=document.querySelector('#incoterm').value||'—';
   document.querySelector('#printOrigin').textContent=document.querySelector('#origin').value||'—';
   document.querySelector('#printDestination').textContent=document.querySelector('#destination').value||'—';
