@@ -61,10 +61,12 @@ export async function onRequestGet({ request }) {
       disclaimer: "Search results are HS candidates, not a binding customs classification. HS 6-digit codes can differ across HS revisions; confirm the applicable revision and national tariff line."
     });
   } catch (error) {
+    const timedOut = error?.detail?.code === "WITS_TIMEOUT";
     return json({
-      error: "HS lookup failed",
+      error: timedOut ? "HS data source timed out" : "HS lookup failed",
       message: error instanceof Error ? error.message : String(error),
-      detail: error?.detail || null
-    }, 502, "no-store");
+      detail: error?.detail || null,
+      retryable: timedOut
+    }, timedOut ? 504 : 502, "no-store");
   }
 }

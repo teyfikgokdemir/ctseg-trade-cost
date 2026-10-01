@@ -48,11 +48,30 @@ export function parseWitsProducts(xml) {
   return products;
 }
 
-async function fetchXml(path, cacheTtl = 86400) {
-  const response = await fetch(`${WITS_PRODUCT_BASE}/${path}`, {
-    headers: { "Accept": "application/xml,text/xml;q=0.9,*/*;q=0.8" },
-    cf: { cacheTtl, cacheEverything: true }
-  });
+async function fetchXml(path, cacheTtl = 86400, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response;
+  try {
+    response = await fetch(`${WITS_PRODUCT_BASE}/${path}`, {
+      headers: {
+        "Accept": "application/xml,text/xml;q=0.9,*/*;q=0.8",
+        "User-Agent": "CTSEG-Trade-Cost/0.6"
+      },
+      signal: controller.signal,
+      cf: { cacheTtl, cacheEverything: true }
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw Object.assign(new Error("WITS request timed out"), {
+        detail: { code: "WITS_TIMEOUT", timeoutMs, path }
+      });
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const text = await response.text();
   if (!response.ok) {
@@ -64,13 +83,13 @@ async function fetchXml(path, cacheTtl = 86400) {
 }
 
 export async function fetchWitsProductByCode(code) {
-  const xml = await fetchXml(code, 604800);
+  const xml = await fetchXml(code, 604800, 8000);
   const products = parseWitsProducts(xml);
   return products.find(p => p.hsCode === code) || products[0] || null;
 }
 
 export async function searchWitsProducts(query, limit = 10) {
-  const xml = await fetchXml("all", 604800);
+  const xml = await fetchXml("all", 604800, 12000);
   const products = parseWitsProducts(xml);
 
   const q = String(query || "").trim().toLowerCase();
