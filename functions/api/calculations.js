@@ -1,0 +1,79 @@
+import { ensureTenant, normalizeWorkspaceId, requireDb } from "../../packages/db/src/d1.js";
+
+function json(body, status = 200) {
+  return Response.json(body, {
+    status,
+    headers: { "Cache-Control": "no-store" }
+  });
+}
+
+function dbError(error) {
+  if (error?.code === "DB_NOT_CONFIGURED") {
+    return json({ error: "D1 is not configured", code: error.code }, 503);
+  }
+  if (error?.code === "INVALID_WORKSPACE_ID") {
+    return json({ error: error.message, code: error.code }, 400);
+  }
+  return json({
+    error: "D1 calculation operation failed",
+    message: error instanceof Error ? error.message : String(error)
+  }, 500);
+}
+
+export async function onRequestGet({ request, env }) {
+  try {
+    const db = requireDb(env);
+    const url = new URL(request.url);
+    const workspaceId = normalizeWorkspaceId(url.searchParams.get("workspaceId"));
+    const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 25), 1), 100);
+
+    const result = await db.prepare(`
+      SELECT id, input_json, result_json, created_at
+      FROM calculations
+      WHERE tenant_id = ?
+      ORDER BY created_at DESC
+      LIMIT ?
+    `).bind(workspaceId, limit).all();
+
+    return json({
+      provider: "cloudflare-d1",
+      workspaceId,
+      calculations: (result.results || []).map(row => ({
+        id: row.id,
+        input: JSON.parse(row.input_json),
+        result: JSON.parse(row.result_json),
+        createdAt: row.created_at
+      }))
+    });
+  } catch (error) {
+    return dbError(error);
+  }
+}
+
+export async function onRequestPost({ request, env }) {
+  try {
+    const db = requireDb(env);
+    const body = await request.json();
+    const workspaceId = normalizeWorkspaceId(body.workspaceId);
+
+    if (!body.input || !body.result) {
+      return json({ error: "input and result are required" }, 400);
+    }
+
+    await ensureTenant(db, workspaceId);
+
+    const id = crypto.randomUUID();
+    await db.prepare(
+      "INSERT INTO calculations (id, tenant_id, input_json, result_json) VALUES (?, ?, ?, ?)"
+    ).bind(
+      id,
+      workspaceId,
+      JSON.stringify(body.input),
+      JSON.stringify(body.result)
+    ).run();
+
+    return json({ status: "CREATED", id }, 201);
+  } catch (error) {
+    return dbError(error);
+  }
+}
