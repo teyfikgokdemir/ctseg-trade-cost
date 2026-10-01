@@ -62,14 +62,40 @@ export async function onRequestPost({ request, env }) {
 
     await ensureTenant(db, workspaceId);
 
+    const inputJson = JSON.stringify(body.input);
+    const resultJson = JSON.stringify(body.result);
+
+    const duplicate = await db.prepare(`
+      SELECT id, created_at
+      FROM calculations
+      WHERE tenant_id = ?
+        AND input_json = ?
+        AND result_json = ?
+        AND datetime(created_at) >= datetime('now', '-10 minutes')
+      ORDER BY datetime(created_at) DESC
+      LIMIT 1
+    `).bind(
+      workspaceId,
+      inputJson,
+      resultJson
+    ).first();
+
+    if (duplicate?.id) {
+      return json({
+        status: "DUPLICATE_SKIPPED",
+        id: duplicate.id,
+        createdAt: duplicate.created_at
+      }, 200);
+    }
+
     const id = crypto.randomUUID();
     await db.prepare(
       "INSERT INTO calculations (id, tenant_id, input_json, result_json) VALUES (?, ?, ?, ?)"
     ).bind(
       id,
       workspaceId,
-      JSON.stringify(body.input),
-      JSON.stringify(body.result)
+      inputJson,
+      resultJson
     ).run();
 
     return json({ status: "CREATED", id }, 201);
