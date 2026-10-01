@@ -1,0 +1,10 @@
+{
+  "name": "trade-cost-platform",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test packages/core/test/*.test.js",
+    "demo": "node packages/core/src/demo.js"
+  }
+}
