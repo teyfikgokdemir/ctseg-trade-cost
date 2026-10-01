@@ -66,3 +66,17 @@ No placeholder value may be surfaced as LIVE or OFFICIAL.
 - Text/candidate lookup: `/api/hs?q=threonine`
 - Optional secondary WITS check: `/api/hs?code=292250&verify=wits`
 - HS 2022 is the primary international classification reference. Country-specific national tariff lines remain authoritative for a binding declaration.
+
+
+## WTO HS tariff lookup
+- Endpoint: `/api/tariff?action=lookup`
+- Required: `hs` (6 digits), `reporter` (3-digit WTO/UN economy code)
+- Optional: `partner` (3-digit origin/partner code), `year` (YYYY)
+- Example China -> Türkiye L-Threonine:
+  `/api/tariff?action=lookup&hs=292250&reporter=792&partner=156&year=2025`
+- Queries are sequenced to respect the WTO Standard product's 1 call/second limit for timeseries data.
+- Returned indicators:
+  - `HS_A_0010` MFN simple average ad valorem duty
+  - `HS_A_0020` MFN maximum ad valorem duty
+  - `HS_P_0070` partner-specific lowest preferential tariff observation
+- Preferential observations do not by themselves establish eligibility; origin rules and the applicable arrangement still need confirmation.
