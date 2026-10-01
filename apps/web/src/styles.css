@@ -79,3 +79,20 @@
 .danger-action{border-color:#5d2d2d!important;background:#2b1717!important;color:#ffc7c7!important}
 .danger-action:hover{background:#3a1c1c!important}
 @media(max-width:760px){.history-actions,.history-row-actions{width:100%;flex-direction:column}.history-actions button,.history-row-actions button{width:100%}}
+
+
+.tax-country-card select{
+  border:0;
+  background:transparent;
+  padding:0;
+  border-radius:0;
+  font-size:18px;
+  font-weight:700;
+  color:#eef5f4;
+  min-height:28px;
+}
+.tax-country-card select:focus{
+  outline:1px solid #3b6563;
+  outline-offset:4px;
+  border-radius:6px;
+}
