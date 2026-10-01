@@ -31,12 +31,20 @@ CREATE TABLE tariff_records (
   destination_country TEXT NOT NULL,
   country_of_origin TEXT,
   hs_code TEXT NOT NULL,
+  hs_revision TEXT,
+  tariff_type TEXT,
   duty_rate REAL,
+  min_rate REAL,
+  max_rate REAL,
   vat_rate REAL,
   excise_rate REAL,
+  source_name TEXT,
   source_url TEXT,
+  source_year INTEGER,
+  data_status TEXT NOT NULL DEFAULT 'UNVERIFIED',
   effective_from TEXT,
   verified_at TEXT,
+  retrieved_at TEXT,
   metadata_json TEXT
 );
 
