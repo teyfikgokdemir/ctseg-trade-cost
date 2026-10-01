@@ -704,7 +704,91 @@ function renderCalculationHistory(items){
     const totalBox=document.createElement('div');
     totalBox.className='history-total';
     const totalStrong=document.createElement('strong');
-    totalStrong.textContent=Number.isFinite(total)?'function currentQuoteKey(){
+    totalStrong.textContent=Number.isFinite(total)?'$'+money(total,0):'—';
+    const totalMeta=document.createElement('span');
+    totalMeta.textContent=currentLanguage==='en'?'historical snapshot':'geçmiş snapshot';
+    totalBox.append(totalStrong,totalMeta);
+
+    const button=document.createElement('button');
+    button.type='button';
+    button.textContent=currentLanguage==='en'?'Reload':'Yeniden yükle';
+    button.addEventListener('click',()=>restoreCalculationSnapshot(item));
+
+    row.append(main,route,totalBox,button);
+    list.appendChild(row);
+  }
+}
+
+async function restoreCalculationSnapshot(item){
+  const input=item?.input||{};
+  const result=item?.result||{};
+
+  if(input.product?.name!==undefined) document.querySelector('#productName').value=input.product.name;
+  if(input.product?.hsCode!==undefined) document.querySelector('#hsCode').value=input.product.hsCode;
+
+  if(input.route?.origin!==undefined) document.querySelector('#origin').value=input.route.origin;
+  if(input.route?.destination!==undefined) document.querySelector('#destination').value=input.route.destination;
+  if(input.route?.originCountry!==undefined) document.querySelector('#originCountry').value=input.route.originCountry||'';
+  if(input.route?.importCountry!==undefined) document.querySelector('#importCountry').value=input.route.importCountry||'';
+  if(input.route?.incoterm && [...document.querySelector('#incoterm').options].some(o=>o.value===input.route.incoterm)){
+    document.querySelector('#incoterm').value=input.route.incoterm;
+  }
+
+  const shipment=input.shipment||{};
+  if(shipment.containerType && [...document.querySelector('#containerType').options].some(o=>o.value===shipment.containerType)){
+    document.querySelector('#containerType').value=shipment.containerType;
+  }
+  if(Number(shipment.containerCount)>0) document.querySelector('#containerCount').value=String(shipment.containerCount);
+  const inferredPayload=Number(shipment.payloadPerContainer)>0
+    ? Number(shipment.payloadPerContainer)
+    : (Number(shipment.netMt)>0&&Number(shipment.containerCount)>0
+      ? Number(shipment.netMt)/Number(shipment.containerCount)
+      : null);
+  if(inferredPayload) document.querySelector('#payloadPerContainer').value=String(inferredPayload);
+
+  if(Number(input.purchase?.price)>=0) document.querySelector('#price').value=String(input.purchase.price);
+  if(input.purchase?.priceUnit && [...document.querySelector('#priceUnit').options].some(o=>o.value===input.purchase.priceUnit)){
+    document.querySelector('#priceUnit').value=input.purchase.priceUnit;
+  }
+
+  if(Number.isFinite(Number(input.routeProfile?.grossWeightKg))) document.querySelector('#grossWeightKg').value=String(input.routeProfile.grossWeightKg);
+  if(Number.isFinite(Number(input.routeProfile?.heightCm))) document.querySelector('#heightCm').value=String(input.routeProfile.heightCm);
+  if(Number.isFinite(Number(input.routeProfile?.commercialBufferPct))) document.querySelector('#commercialBuffer').value=String(input.routeProfile.commercialBufferPct);
+
+  if(Array.isArray(input.costRows)&&input.costRows.length){
+    rows.replaceChildren();
+    for(const row of input.costRows){
+      addRow([row.label,row.method,row.rate,row.source]);
+    }
+  }
+
+  lastRouteData=null;
+  document.querySelector('#routeDistance').textContent='—';
+  document.querySelector('#routeDuration').textContent='—';
+  document.querySelector('#routeTolls').textContent='—';
+  document.querySelector('#routeStatus').textContent=currentLanguage==='en'?'Recalculate route':'Rotayı yeniden hesapla';
+  document.querySelector('#results').hidden=true;
+
+  syncShipment();
+  refreshCalculatedAmounts();
+  renderQuoteSummary();
+
+  const notice=document.querySelector('#historySnapshotNotice');
+  notice.hidden=false;
+  const historicalTotal=Number(result.total);
+  notice.textContent=(currentLanguage==='en'?'Historical snapshot loaded':'Geçmiş snapshot yüklendi')
+    +(Number.isFinite(historicalTotal)?' · $'+money(historicalTotal,0):'')
+    +(currentLanguage==='en'
+      ? '. Recalculate to use current tariff, FX, route and freight data.'
+      : '. Güncel tarife, kur, rota ve navlun verileri için hesabı yeniden çalıştırın.');
+
+  const hs=String(input.product?.hsCode||'');
+  if(/^\d{6}$/.test(hs)) validateHsCode(hs);
+  else loadTariff();
+
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function currentQuoteKey(){
   return {
     origin:normalizeText(document.querySelector('#origin').value),
     destination:normalizeText(document.querySelector('#destination').value),
