@@ -103,3 +103,41 @@ export async function onRequestPost({ request, env }) {
     return dbError(error);
   }
 }
+
+
+export async function onRequestDelete({ request, env }) {
+  try {
+    const db = requireDb(env);
+    const url = new URL(request.url);
+    const workspaceId = normalizeWorkspaceId(url.searchParams.get("workspaceId"));
+    const id = (url.searchParams.get("id") || "").trim();
+    const all = (url.searchParams.get("all") || "").toLowerCase() === "true";
+
+    if (!id && !all) {
+      return json({ error: "id or all=true is required" }, 400);
+    }
+
+    if (all) {
+      const result = await db.prepare(
+        "DELETE FROM calculations WHERE tenant_id = ?"
+      ).bind(workspaceId).run();
+
+      return json({
+        status: "ALL_DELETED",
+        changes: result.meta?.changes ?? null
+      });
+    }
+
+    const result = await db.prepare(
+      "DELETE FROM calculations WHERE id = ? AND tenant_id = ?"
+    ).bind(id, workspaceId).run();
+
+    return json({
+      status: "DELETED",
+      id,
+      changes: result.meta?.changes ?? null
+    });
+  } catch (error) {
+    return dbError(error);
+  }
+}

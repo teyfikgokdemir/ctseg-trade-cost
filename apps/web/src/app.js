@@ -99,6 +99,7 @@ const STATIC_TRANSLATIONS={
   'Geçmiş hesaplamalar':'Calculation history',
   "D1 üzerinde saklanan son hesaplamaları görüntüleyin. Geçmiş sonuçlar snapshot'tır; yeniden yüklediğinizde güncel veri kaynakları tekrar sorgulanır.":'View recent calculations stored in D1. Historical results are snapshots; current data sources are queried again when you reload them.',
   'Geçmişi yenile':'Refresh history',
+  'Tüm geçmişi sil':'Delete all history',
   'Geçmiş hesaplamalar yükleniyor…':'Loading calculation history…',
   'ULUSLARARASI TİCARET MALİYET RAPORU':'INTERNATIONAL TRADE COST REPORT',
   'Menşe':'Origin',
@@ -636,6 +637,16 @@ async function persistCalculationSnapshot(input,result){
     return true;
   }catch{return false}
 }
+async function deleteCalculationHistory(id=null){
+  const params=new URLSearchParams({workspaceId});
+  if(id) params.set('id',id);
+  else params.set('all','true');
+
+  const res=await fetch('/api/calculations?'+params.toString(),{method:'DELETE'});
+  if(!res.ok) throw new Error();
+  return res.json();
+}
+
 async function loadCalculationHistory(){
   const list=document.querySelector('#calculationHistory');
   if(!list) return [];
@@ -709,12 +720,33 @@ function renderCalculationHistory(items){
     totalMeta.textContent=currentLanguage==='en'?'historical snapshot':'geçmiş snapshot';
     totalBox.append(totalStrong,totalMeta);
 
+    const actions=document.createElement('div');
+    actions.className='history-row-actions';
+
     const button=document.createElement('button');
     button.type='button';
     button.textContent=currentLanguage==='en'?'Reload':'Yeniden yükle';
     button.addEventListener('click',()=>restoreCalculationSnapshot(item));
 
-    row.append(main,route,totalBox,button);
+    const del=document.createElement('button');
+    del.type='button';
+    del.className='danger-action';
+    del.textContent=currentLanguage==='en'?'Delete':'Sil';
+    del.addEventListener('click',async()=>{
+      const ok=confirm(currentLanguage==='en'
+        ? 'Delete this calculation history record permanently?'
+        : 'Bu geçmiş hesaplama kaydı kalıcı olarak silinsin mi?');
+      if(!ok) return;
+      try{
+        await deleteCalculationHistory(item.id);
+        await loadCalculationHistory();
+      }catch{
+        alert(currentLanguage==='en'?'History record could not be deleted.':'Geçmiş kaydı silinemedi.');
+      }
+    });
+
+    actions.append(button,del);
+    row.append(main,route,totalBox,actions);
     list.appendChild(row);
   }
 }
@@ -997,6 +1029,18 @@ renderQuoteSummary();
 hydrateQuotesFromD1();
 loadCalculationHistory();
 document.querySelector('#refreshCalculationHistory').addEventListener('click',loadCalculationHistory);
+document.querySelector('#clearCalculationHistory').addEventListener('click',async()=>{
+  const ok=confirm(currentLanguage==='en'
+    ? 'Delete all calculation history for this workspace permanently?'
+    : 'Bu çalışma alanındaki tüm hesaplama geçmişi kalıcı olarak silinsin mi?');
+  if(!ok) return;
+  try{
+    await deleteCalculationHistory();
+    await loadCalculationHistory();
+  }catch{
+    alert(currentLanguage==='en'?'Calculation history could not be deleted.':'Hesaplama geçmişi silinemedi.');
+  }
+});
 
 document.querySelector('#calculate').addEventListener('click',()=>{
   const notice=document.querySelector('#historySnapshotNotice');

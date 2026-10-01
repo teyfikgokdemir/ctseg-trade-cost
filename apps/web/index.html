@@ -343,7 +343,10 @@
           <h2>Geçmiş hesaplamalar</h2>
           <p class="section-help">D1 üzerinde saklanan son hesaplamaları görüntüleyin. Geçmiş sonuçlar snapshot'tır; yeniden yüklediğinizde güncel veri kaynakları tekrar sorgulanır.</p>
         </div>
-        <button id="refreshCalculationHistory" type="button">Geçmişi yenile</button>
+        <div class="history-actions">
+          <button id="refreshCalculationHistory" type="button">Geçmişi yenile</button>
+          <button id="clearCalculationHistory" type="button" class="danger-action">Tüm geçmişi sil</button>
+        </div>
       </div>
       <div id="historySnapshotNotice" class="history-notice" hidden></div>
       <div id="calculationHistory" class="history-list">

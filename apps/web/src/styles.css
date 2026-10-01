@@ -74,3 +74,8 @@
 .history-item button{white-space:nowrap}
 .history-notice{margin:0 0 14px;padding:12px 14px;border:1px solid #4d5f2b;border-radius:12px;background:rgba(190,255,54,.06);color:#d8ef9a;font-size:13px}
 @media(max-width:760px){.history-item{grid-template-columns:1fr}.history-item button{width:100%}}
+
+.history-actions,.history-row-actions{display:flex;align-items:center;gap:8px}
+.danger-action{border-color:#5d2d2d!important;background:#2b1717!important;color:#ffc7c7!important}
+.danger-action:hover{background:#3a1c1c!important}
+@media(max-width:760px){.history-actions,.history-row-actions{width:100%;flex-direction:column}.history-actions button,.history-row-actions button{width:100%}}
