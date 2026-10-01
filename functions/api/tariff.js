@@ -92,6 +92,95 @@ function buildPeriodWindow(year) {
   return `${start}-${end}`;
 }
 
+const TARIFF_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function tariffCacheKey({ hs, reporter, partner, year }) {
+  return [reporter, partner || "ALL", hs, year || "default"].join(":");
+}
+
+function parseJson(value, fallback = null) {
+  if (!value) return fallback;
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
+async function readTariffCache(env, input) {
+  if (!env?.DB) return null;
+  const key = tariffCacheKey(input);
+  const row = await env.DB.prepare(`
+    SELECT cache_key, duty_rate, max_rate, source_year, data_status,
+           retrieved_at, metadata_json
+    FROM tariff_records
+    WHERE cache_key = ?
+    LIMIT 1
+  `).bind(key).first();
+
+  if (!row?.retrieved_at) return null;
+  const ageMs = Date.now() - new Date(row.retrieved_at).getTime();
+  if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > TARIFF_CACHE_TTL_MS) return null;
+
+  const metadata = parseJson(row.metadata_json, {});
+  return {
+    key,
+    ageHours: ageMs / 3600000,
+    normalized: metadata.normalized || {
+      dutyRate: row.duty_rate ?? null,
+      maxRate: row.max_rate ?? null,
+      resolvedYear: row.source_year ?? null
+    },
+    requestedYear: metadata.requestedYear || input.year || "default/latest available",
+    queriedPeriod: metadata.queriedPeriod || buildPeriodWindow(input.year),
+    indicators: metadata.indicators || null,
+    interpretation: metadata.interpretation || null,
+    disclaimer: metadata.disclaimer || null
+  };
+}
+
+async function writeTariffCache(env, input, payload) {
+  if (!env?.DB) return false;
+  const key = tariffCacheKey(input);
+  const now = new Date().toISOString();
+
+  await env.DB.prepare(`
+    INSERT INTO tariff_records (
+      id, origin_country, destination_country, country_of_origin, hs_code,
+      hs_revision, tariff_type, duty_rate, max_rate, source_name, source_year,
+      data_status, retrieved_at, metadata_json, cache_key
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(cache_key) DO UPDATE SET
+      duty_rate = excluded.duty_rate,
+      max_rate = excluded.max_rate,
+      source_year = excluded.source_year,
+      data_status = excluded.data_status,
+      retrieved_at = excluded.retrieved_at,
+      metadata_json = excluded.metadata_json
+  `).bind(
+    crypto.randomUUID(),
+    input.partner || null,
+    input.reporter,
+    input.partner || null,
+    input.hs,
+    "HS2022",
+    "WTO_MFN_REFERENCE",
+    payload.normalized?.dutyRate ?? null,
+    payload.normalized?.maxRate ?? null,
+    "World Trade Organization",
+    payload.normalized?.resolvedYear ?? null,
+    payload.normalized?.dutyRate === null || payload.normalized?.dutyRate === undefined ? "NO_DATA" : "CACHED_OFFICIAL",
+    now,
+    JSON.stringify({
+      normalized: payload.normalized,
+      requestedYear: payload.requestedYear,
+      queriedPeriod: payload.queriedPeriod,
+      indicators: payload.indicators,
+      interpretation: payload.interpretation,
+      disclaimer: payload.disclaimer
+    }),
+    key
+  ).run();
+
+  return true;
+}
+
 async function lookupTariffs(apiKey, { hs, reporter, partner, year }) {
   const base = {
     r: reporter,
@@ -172,6 +261,38 @@ export async function onRequestGet({ request, env }) {
         return json({ error: "year must be YYYY" }, 400, "no-store");
       }
 
+      const cacheInput = { hs, reporter, partner, year };
+      let cached = null;
+      try {
+        cached = await readTariffCache(env, cacheInput);
+      } catch {
+        // Missing/old D1 schema or cache errors must not block fresh WTO lookup.
+      }
+      if (cached) {
+        return json({
+          provider: "wto-timeseries-v1",
+          sourceType: "OFFICIAL",
+          sourceName: "World Trade Organization",
+          retrievedAt: new Date().toISOString(),
+          action: "lookup",
+          classification: { hs, hsLevel: 6 },
+          route: { reporter, partner: partner || null },
+          requestedYear: cached.requestedYear,
+          queriedPeriod: cached.queriedPeriod,
+          normalized: cached.normalized,
+          indicators: cached.indicators,
+          interpretation: cached.interpretation,
+          disclaimer: cached.disclaimer,
+          cache: {
+            hit: true,
+            layer: "D1",
+            key: cached.key,
+            ageHours: Number(cached.ageHours.toFixed(2)),
+            ttlHours: 168
+          }
+        }, 200, "private, max-age=300");
+      }
+
       const data = await lookupTariffs(env.WTO_API_KEY, { hs, reporter, partner, year });
       const normalized = normalizeLookupResult({
         requestedYear: year,
@@ -180,7 +301,7 @@ export async function onRequestGet({ request, env }) {
         preferential: data.preferential
       });
 
-      return json({
+      const payload = {
         provider: "wto-timeseries-v1",
         sourceType: "OFFICIAL",
         sourceName: "World Trade Organization",
@@ -224,6 +345,21 @@ export async function onRequestGet({ request, env }) {
             : "No partner was supplied, so no preferential-tariff query was made."
         },
         disclaimer: "Official WTO statistical tariff data is not a binding customs assessment. Preferential observations are never applied automatically without confirmed scheme eligibility and rules of origin. Confirm the importing country's current national tariff line, origin rules, taxes and other import charges before quoting a final landed cost."
+      };
+
+      try {
+        await writeTariffCache(env, cacheInput, payload);
+      } catch {
+        // Cache failures must never block a fresh official WTO result.
+      }
+
+      return json({
+        ...payload,
+        cache: {
+          hit: false,
+          layer: env?.DB ? "D1" : "NONE",
+          ttlHours: 168
+        }
       });
     }
 
