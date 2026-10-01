@@ -309,9 +309,9 @@ function addRow([label='',method='FIXED',rate=0,source='ESTIMATE']={}){
   div.className='cost-row';
   div.innerHTML=`
     <input class="label" value="${label}">
-    <select class="method">${Object.keys(methodLabels).map(k=>`<option value="${k}" ${k===method?'selected':''}>${methodLabels[k]}</option>`).join('')}</select>
+    <select class="method">${Object.keys(methodLabelsTr).map(k=>`<option value="${k}" ${k===method?'selected':''}>${(currentLanguage==='en'?methodLabelsEn:methodLabelsTr)[k]}</option>`).join('')}</select>
     <input class="rate" type="number" min="0" step="0.01" value="${rate}">
-    <select class="source">${Object.keys(sourceLabels).map(k=>`<option value="${k}" ${k===source?'selected':''}>${sourceLabels[k]}</option>`).join('')}</select>
+    <select class="source">${Object.keys(sourceLabelsTr).map(k=>`<option value="${k}" ${k===source?'selected':''}>${(currentLanguage==='en'?sourceLabelsEn:sourceLabelsTr)[k]}</option>`).join('')}</select>
     <output class="computed">$0</output>
     <button type="button" title="Sil">×</button>`;
   div.querySelector('button').addEventListener('click',()=>{div.remove();refreshCalculatedAmounts()});
@@ -354,7 +354,7 @@ async function loadCountries(){
       select.replaceChildren();
       const placeholder=document.createElement('option');
       placeholder.value='';
-      placeholder.textContent='Ülke seçin';
+      placeholder.textContent=msg('countrySelect');
       select.appendChild(placeholder);
 
       for(const country of countryReference){
@@ -374,8 +374,8 @@ async function loadCountries(){
     fill(originSelect,'792');
     fill(importSelect,'004');
   }catch{
-    originSelect.innerHTML='<option value="">Ülke listesi alınamadı</option>';
-    importSelect.innerHTML='<option value="">Ülke listesi alınamadı</option>';
+    originSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
+    importSelect.innerHTML='<option value="">'+(currentLanguage==='en'?'Country list unavailable':'Ülke listesi alınamadı')+'</option>';
   }
 }
 
@@ -397,11 +397,11 @@ function applyTariffToUi(normalized){
   if(Number.isFinite(rate)){
     duty.querySelector('.rate').value=String(rate);
     duty.querySelector('.source').value='OFFICIAL';
-    duty.querySelector('.label').value='İthalat gümrük vergisi';
+    duty.querySelector('.label').value=currentLanguage==='en'?'Import duty':'İthalat gümrük vergisi';
   }else{
     duty.querySelector('.rate').value='0';
     duty.querySelector('.source').value='ESTIMATE';
-    duty.querySelector('.label').value='İthalat gümrük vergisi (doğrulanacak)';
+    duty.querySelector('.label').value=currentLanguage==='en'?'Import duty (to be verified)':'İthalat gümrük vergisi (doğrulanacak)';
   }
   refreshCalculatedAmounts();
 }
@@ -420,14 +420,14 @@ async function loadTariff(){
     hsEl.textContent=hs||'—';
     rateEl.textContent='—';
     yearEl.textContent='—';
-    statusEl.textContent='Eksik seçim';
-    noteEl.textContent='6 haneli HS kodu, menşe ve ithalat ülkesi gerekli.';
+    statusEl.textContent=msg('tariffMissing');
+    noteEl.textContent=msg('tariffMissingNote');
     return null;
   }
 
   const seq=++tariffRequestSeq;
   hsEl.textContent=hs;
-  statusEl.textContent='Sorgulanıyor…';
+  statusEl.textContent=msg('tariffLoading');
   rateEl.textContent='—';
   yearEl.textContent='—';
 
@@ -449,15 +449,17 @@ async function loadTariff(){
     rateEl.textContent=Number.isFinite(rate)?'%'+money(rate,2):'Veri yok';
     yearEl.textContent=normalized.resolvedYear||'—';
     statusEl.textContent=normalized.confidence==='HIGH'
-      ?'Yüksek güven'
+      ?msg('highConfidence')
       :normalized.confidence==='MEDIUM'
-        ?'Orta güven'
-        :'Doğrulama gerekli';
+        ?msg('mediumConfidence')
+        :msg('verifyRequired');
 
     const pref=normalized.preferentialCandidate;
     noteEl.textContent=pref
-      ? `MFN güvenli varsayılan olarak uygulandı. %${money(pref.rate,2)} preferential aday var ancak uygunluk doğrulanmadı.`
-      : 'WTO MFN oranı otomatik uygulandı. Nihai beyan öncesi ulusal tarife satırı doğrulanmalıdır.';
+      ? (currentLanguage==='en'
+        ? `MFN was applied as the safe default. A ${money(pref.rate,2)}% preferential candidate exists, but eligibility is not confirmed.`
+        : `MFN güvenli varsayılan olarak uygulandı. %${money(pref.rate,2)} preferential aday var ancak uygunluk doğrulanmadı.`)
+      : msg('tariffMfn');
 
     applyTariffToUi(normalized);
     return data;
@@ -465,8 +467,8 @@ async function loadTariff(){
     if(seq!==tariffRequestSeq) return null;
     rateEl.textContent='—';
     yearEl.textContent='—';
-    statusEl.textContent='Veri alınamadı';
-    noteEl.textContent='WTO tarife verisi alınamadı; manuel doğrulama gerekli.';
+    statusEl.textContent=msg('tariffNoData');
+    noteEl.textContent=msg('tariffNoDataNote');
     applyTariffToUi(null);
     return null;
   }
@@ -639,7 +641,7 @@ function renderHsSuggestions(matches){
   if(!matches.length){
     const empty=document.createElement('div');
     empty.className='hs-empty';
-    empty.textContent='Eşleşen HS6 adayı bulunamadı.';
+    empty.textContent=msg('hsNoMatchLong');
     box.appendChild(empty);
     box.hidden=false;
     return;
@@ -658,14 +660,15 @@ function renderHsSuggestions(matches){
     code.textContent=match.hsCode;
 
     const badge=document.createElement('em');
-    badge.textContent=match.matchType==='CURATED_ALIAS'?'Ürün eşleşmesi':'HS 2022';
+    badge.textContent=match.matchType==='CURATED_ALIAS'?msg('productMatch'):'HS 2022';
 
     top.append(code,badge);
 
     const desc=document.createElement('span');
     desc.className='hs-suggestion-desc';
-    desc.textContent=match.aliasLabel
-      ? `${match.aliasLabel} — ${match.description}`
+    const localizedAlias=match.localizedLabels?.[currentLanguage]||match.aliasLabel;
+    desc.textContent=localizedAlias
+      ? `${localizedAlias} — ${match.description}`
       : match.description;
 
     button.append(top,desc);
@@ -685,12 +688,12 @@ async function searchHsCandidates(query){
   const q=String(query||'').trim();
   if(q.length<2){
     hideHsSuggestions();
-    setHsStatus('HS 2022 global sınıflandırma');
+    setHsStatus(msg('hsGlobal'));
     return;
   }
 
   const seq=++hsSearchSeq;
-  setHsStatus('HS adayları aranıyor…','loading');
+  setHsStatus(msg('hsSearching'),'loading');
 
   try{
     const res=await fetch('/api/hs?q='+encodeURIComponent(q)+'&limit=8',{cache:'no-store'});
@@ -702,32 +705,32 @@ async function searchHsCandidates(query){
     setHsStatus(
       data.matches?.length
         ? `${data.matches.length} HS6 adayı · HS2022`
-        : 'HS6 adayı bulunamadı',
+        : msg('hsNoMatch'),
       data.matches?.length?'candidate':'warning'
     );
   }catch(error){
     if(seq!==hsSearchSeq) return;
     hideHsSuggestions();
-    setHsStatus('HS verisi alınamadı · tekrar deneyin','error');
+    setHsStatus(msg('hsDataError'),'error');
   }
 }
 
 async function validateHsCode(code){
   if(!/^\d{6}$/.test(code)){
-    setHsStatus('6 haneli HS kodu seçin veya ürün adıyla arayın','warning');
+    setHsStatus(msg('hsSixDigits'),'warning');
     return null;
   }
 
-  setHsStatus('HS kodu doğrulanıyor…','loading');
+  setHsStatus(msg('hsValidating'),'loading');
   try{
     const res=await fetch('/api/hs?code='+encodeURIComponent(code),{cache:'no-store'});
     const data=await res.json();
     if(!res.ok||!data.match) throw new Error();
-    setHsStatus(`${data.match.hsCode} doğrulandı · ${data.hsRevision||'HS2022'}`,'verified');
+    setHsStatus(currentLanguage==='en'?`${data.match.hsCode} validated · ${data.hsRevision||'HS2022'}`:`${data.match.hsCode} doğrulandı · ${data.hsRevision||'HS2022'}`,'verified');
     loadTariff();
     return data.match;
   }catch{
-    setHsStatus('HS kodu doğrulanamadı','error');
+    setHsStatus(msg('hsInvalid'),'error');
     return null;
   }
 }
@@ -750,7 +753,7 @@ hsInput.addEventListener('blur',()=>{
 document.querySelector('#searchHsFromProduct').addEventListener('click',()=>{
   const product=document.querySelector('#productName').value.trim();
   if(product.length<2){
-    setHsStatus('Önce ürün adını yazın','warning');
+    setHsStatus(msg('productFirst'),'warning');
     return;
   }
   searchHsCandidates(product);
@@ -780,6 +783,12 @@ async function loadFx(){
   }catch{rateEl.textContent='Kur verisi alınamadı';metaEl.textContent='API bağlantısı henüz aktif değil veya deploy tamamlanmadı.'}
   finally{button.disabled=false;button.textContent='Kuru yenile'}
 }
+const languageSelect=document.querySelector('#languageSelect');
+languageSelect.value=currentLanguage;
+languageSelect.addEventListener('change',()=>applyLanguage(languageSelect.value));
+translateStaticDocument();
+updateCostLanguage();
+
 document.querySelector('#refreshTariff').addEventListener('click',loadTariff);
 ['originCountry','importCountry'].forEach(id=>document.querySelector('#'+id).addEventListener('change',loadTariff));
 
