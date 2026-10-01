@@ -35,3 +35,13 @@ Every market value should carry:
 - user/forwarder quote ingestion
 
 No placeholder value may be surfaced as LIVE or OFFICIAL.
+
+
+## WTO Timeseries API v1
+- Provider id: `wto-timeseries-v1`
+- Authentication: Cloudflare secret `WTO_API_KEY`
+- Endpoint: `/api/tariff`
+- Indicator discovery: `/api/tariff?action=indicators`
+- Data calls pass documented WTO Timeseries query parameters through to `/timeseries/v1/data`.
+- WTO tariff observations are tagged `OFFICIAL`, but the application must retain reporting year, HS revision, aggregation level and source metadata.
+- An official historical/statistical observation is not automatically a current executable customs assessment.
