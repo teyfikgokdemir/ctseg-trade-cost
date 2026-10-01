@@ -2193,7 +2193,21 @@ document.querySelector('#calculate').addEventListener('click',()=>{
       .replace(/\s*\((?:doğrulanacak|to be verified)\)\s*/i,'');
   }
 
-  const costs=costRows.map(row=>({amount:calculateRow(row),source:row.querySelector('.source').value}));
+  const customsBaseEstimated=document.querySelector('#customsValuationStatus')?.dataset.quickEstimate==='true';
+  const costs=costRows.map(row=>{
+    const declaredSource=row.querySelector('.source').value;
+    const code=row.dataset.code||'';
+    const dependsOnEstimatedCustomsBase=customsBaseEstimated && (
+      code==='IMPORT_DUTY' ||
+      code==='IMPORT_TAX' ||
+      (code.startsWith('REMEDY_') && row.dataset.remedyBasis==='CUSTOMS_VALUE_PERCENT')
+    );
+    return {
+      amount:calculateRow(row),
+      source:dependsOnEstimatedCustomsBase?'ESTIMATE':declaredSource,
+      declaredSource
+    };
+  });
   const extra=costs.reduce((sum,c)=>sum+c.amount,0);
   const total=goods+extra;
   const low=goods+costs.reduce((sum,c)=>sum+c.amount*(1-spreads[c.source]),0);
