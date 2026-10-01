@@ -57,3 +57,5 @@ export function createPlaceholderProvider(id, name, capabilities = []) {
 export { createWtoTariffProvider, fetchWtoIndicators, fetchWtoTimeseries } from "./wto.js";
 
 export { fetchWitsProductByCode, searchWitsProducts, parseWitsProducts } from "./wits.js";
+
+export { getHs2022ByCode, searchHs2022 } from "./un-hs2022.js";
