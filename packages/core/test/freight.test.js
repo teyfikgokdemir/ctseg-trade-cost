@@ -82,3 +82,22 @@ test("market backhaul signal is informational unless confirmed", async () => {
   assert.equal(backhaulAdjustmentForLandedCost(r), 0);
   assert.equal(backhaulAdjustmentForLandedCost(r,{confirmedOnly:false}), 900);
 });
+
+
+test("backhaul provider registry exposes authenticated road marketplaces", async () => {
+  const { buildBackhaulProviderPlan } = await import("../../providers/src/backhaul.js");
+  const r = buildBackhaulProviderPlan({ transportMode: "ROAD" });
+  assert.equal(r.status, "PROVIDERS_AVAILABLE");
+  assert.equal(r.autoApply, false);
+  assert.ok(r.providers.some(x => x.id === "trans-eu"));
+  assert.ok(r.providers.some(x => x.id === "teleroute"));
+  assert.ok(r.providers.every(x => x.requiresCredentials === true));
+});
+
+test("backhaul provider registry falls back safely for unsupported modes", async () => {
+  const { buildBackhaulProviderPlan } = await import("../../providers/src/backhaul.js");
+  const r = buildBackhaulProviderPlan({ transportMode: "SEA" });
+  assert.equal(r.status, "MANUAL_ONLY");
+  assert.equal(r.providers.length, 0);
+  assert.equal(r.autoApply, false);
+});
