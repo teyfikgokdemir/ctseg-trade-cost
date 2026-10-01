@@ -123,6 +123,23 @@
       </div>
     </section>
 
+    <section class="panel freight-benchmark-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Navlun benchmark</h2>
+          <p class="section-help">Aynı rota ve ekipman için gerçek teklifler ile mevcut benchmark verilerini birleştirir. Veri yoksa fiyat üretmez.</p>
+        </div>
+        <button id="refreshFreightBenchmark" type="button">Benchmark yenile</button>
+      </div>
+      <div class="route-stats">
+        <div><span>Beklenen / birim</span><strong id="freightExpected">—</strong></div>
+        <div><span>Beklenen aralık</span><strong id="freightRange">—</strong></div>
+        <div><span>Güven</span><strong id="freightConfidence">Bekliyor</strong></div>
+        <div><span>Kaynaklar</span><strong id="freightSources">—</strong></div>
+      </div>
+      <p id="freightBenchmarkNote" class="section-help">Önce rotayı hesaplayın veya aynı rota için forwarder teklifi kaydedin.</p>
+    </section>
+
     <section class="panel fx-panel">
       <div class="panel-head">
         <h2>Güncel döviz kuru</h2>
