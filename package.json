@@ -1,12 +1,12 @@
 {
   "name": "trade-cost-platform",
   "private": true,
-  "version": "0.6.1",
+  "version": "0.6.4",
   "type": "module",
   "scripts": {
     "test": "node --test packages/core/test/*.test.js",
     "check:web": "node --check apps/web/src/app.js",
-    "check:functions": "node --check functions/api/fx.js && node --check functions/api/health.js && node --check functions/api/route.js && node --check functions/api/tariff.js && node --check functions/api/hs.js && node --check packages/providers/src/wto.js && node --check packages/providers/src/wits.js",
+    "check:functions": "node --check functions/api/fx.js && node --check functions/api/health.js && node --check functions/api/route.js && node --check functions/api/tariff.js && node --check functions/api/hs.js && node --check packages/providers/src/wto.js && node --check packages/providers/src/wits.js && node --check packages/providers/src/un-hs2022.js",
     "check": "npm run check:web && npm run check:functions && npm test",
     "demo": "node packages/core/src/demo.js",
     "deploy": "wrangler deploy",
