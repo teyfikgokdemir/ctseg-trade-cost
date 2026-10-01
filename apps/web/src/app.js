@@ -253,6 +253,7 @@ async function loadFx(){
   finally{button.disabled=false;button.textContent='Kuru yenile'}
 }
 document.querySelector('#refreshFx').addEventListener('click',loadFx);
+['fxBase','fxQuote'].forEach(id=>document.querySelector('#'+id).addEventListener('change',loadFx));
 loadFx();
 
 async function calculateRoute(){
