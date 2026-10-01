@@ -251,3 +251,28 @@ test('unresolved global tax requirement never invents a zero rate', async () => 
   assert.equal(req.requiresRateVerification, true);
   assert.equal(req.rateStatus, "UNRESOLVED");
 });
+
+
+test('Incoterm scope detects likely duplicate buyer-added costs', async () => {
+  const { findPotentialIncotermDoubleCounts, isIncotermModeCompatible } = await import("../src/incoterms.js");
+
+  const duplicates = findPotentialIncotermDoubleCounts({
+    incoterm: "CIF",
+    costs: [
+      { code: "FREIGHT_INTL", label: "Freight", amount: 1200 },
+      { code: "INSURANCE", label: "Insurance", amount: 100 },
+      { code: "IMPORT_DUTY", label: "Duty", amount: 300 }
+    ]
+  });
+
+  assert.deepEqual(duplicates.map(x => x.code), ["FREIGHT_INTL", "INSURANCE"]);
+  assert.equal(isIncotermModeCompatible("CIF", "SEA"), true);
+  assert.equal(isIncotermModeCompatible("CIF", "ROAD"), false);
+});
+
+test('Incoterm customs valuation remains country-rule dependent', async () => {
+  const { getIncotermCostScope } = await import("../src/incoterms.js");
+  const scope = getIncotermCostScope("DDP");
+  assert.equal(scope.customsValuationPolicy, "COUNTRY_RULE_REQUIRED");
+  assert.ok(scope.sellerIncludedCostCodes.includes("IMPORT_DUTY"));
+});
