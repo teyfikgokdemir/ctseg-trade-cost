@@ -227,3 +227,20 @@ select option:disabled{
 .remedy-source-card p{font-size:12px;color:#9cafb0;margin:9px 0}
 .remedy-source-card ul{margin:8px 0 10px;padding-left:18px;color:#8fa1a2;font-size:12px;line-height:1.45}
 .remedy-source-card a{font-size:12px;color:#b9dfd8}
+
+
+.backhaul-panel{
+  border-color:#29413d;
+}
+.cost-row.backhaul-applied{
+  outline:1px solid #38695e;
+  border-radius:12px;
+  background:rgba(56,105,94,.09);
+}
+.cost-row.backhaul-applied .label,
+.cost-row.backhaul-applied .computed{
+  color:#bfe2da;
+}
+.backhaul-panel .route-stats strong{
+  font-variant-numeric:tabular-nums;
+}
