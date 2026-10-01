@@ -27,7 +27,14 @@
 
       <div class="grid inputs">
         <label>Ürün<input id="productName" value="Ayçiçek yağı" /></label>
-        <label>HS Code<input id="hsCode" placeholder="Örn. 1512..." /></label>
+        <label class="hs-field">HS Code
+          <div class="hs-input-wrap">
+            <input id="hsCode" autocomplete="off" placeholder="Kod veya ürün adı yazın…" />
+            <button id="searchHsFromProduct" class="inline-action" type="button" title="Ürün adından HS ara">Üründen ara</button>
+          </div>
+          <div id="hsSuggestions" class="hs-suggestions" hidden></div>
+          <small id="hsStatus" class="field-status">HS 2022 global sınıflandırma</small>
+        </label>
         <label>Menşe ülke<input id="originCountry" value="Türkiye" /></label>
 
         <label>Çıkış noktası<input id="origin" value="Edirne, Türkiye" /></label>
