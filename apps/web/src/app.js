@@ -227,6 +227,8 @@ async function loadTariff(){
   }
 }
 
+loadCountries().then(loadTariff);
+
 function loadQuotes(){
   try{return JSON.parse(localStorage.getItem(quoteStoreKey)||'[]')}catch{return []}
 }
