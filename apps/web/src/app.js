@@ -116,10 +116,10 @@ const STATIC_TRANSLATIONS={
   'Hesaplanan':'Calculated',
   'Toplam teslim maliyetini hesapla':'Calculate total landed cost',
   'Nihai birim maliyet':'Final unit cost',
-  'Ürün EXW maliyeti':'Product EXW cost',
-  'USD · ürün bedeli':'USD · product value',
-  'EXW sonrası ek maliyet':'Post-EXW additional cost',
-  'USD · lojistik, gümrük, vergi vb.':'USD · logistics, customs, taxes, etc.',
+  'Tedarikçi fiyat değeri':'Supplier price value',
+  'USD · seçilen Incoterm fiyat kapsamı':'USD · selected Incoterm price scope',
+  'Ek landed-cost':'Additional landed cost',
+  'USD · tedarikçi fiyatına dahil olmayan maliyetler':'USD · costs not included in the supplier price',
   'Nihai toplam maliyet':'Final total cost',
   'USD · ürün + tüm ek maliyetler':'USD · product + all additional costs',
   'Ürün birim fiyatı':'Product unit price',
@@ -488,6 +488,11 @@ function customsValuationValues(){
     value,
     status:document.querySelector('#customsValuationStatus')?.value||'WORKING'
   };
+}
+
+function invalidateCustomsValuation(){
+  const status=document.querySelector('#customsValuationStatus');
+  if(status && status.value==='VERIFIED') status.value='WORKING';
 }
 
 function updateCustomsValuation(){
@@ -1702,12 +1707,16 @@ document.querySelector('#refreshTaxRule').addEventListener('click',loadCountryTa
 document.querySelector('#originCountry').addEventListener('change',loadTariff);
 document.querySelector('#exportCountry').addEventListener('change',()=>{});
 document.querySelector('#importCountry').addEventListener('change',()=>{
+  invalidateCustomsValuation();
+  updateCustomsValuation();
   const taxSelect=document.querySelector('#taxRuleCountrySelect');
   if(taxSelect) taxSelect.value=document.querySelector('#importCountry').value;
   loadTariff();
   loadCountryTaxProfile();
 });
 document.querySelector('#taxRuleCountrySelect').addEventListener('change',()=>{
+  invalidateCustomsValuation();
+  updateCustomsValuation();
   const importSelect=document.querySelector('#importCountry');
   importSelect.value=document.querySelector('#taxRuleCountrySelect').value;
   loadTariff();
@@ -1766,7 +1775,11 @@ async function calculateRoute(){
   finally{btn.disabled=false;btn.textContent=currentLanguage==='en'?'Calculate route':'Rotayı hesapla'}
 }
 document.querySelector('#calculateRoute').addEventListener('click',calculateRoute);
-document.querySelector('#incoterm').addEventListener('change',updateIncotermStatus);
+document.querySelector('#incoterm').addEventListener('change',()=>{
+  invalidateCustomsValuation();
+  updateCustomsValuation();
+  updateIncotermStatus();
+});
 document.querySelector('#transportMode').addEventListener('change',()=>{
   lastRouteData=null;
   document.querySelector('#routeDistance').textContent='—';
